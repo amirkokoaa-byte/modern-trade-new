@@ -22,13 +22,13 @@ export const PRODUCT_GROUPS = {
   facial: [
     "Soft 500 single",
     "Soft 600 single",
-    "Soft 400 31",
-    "Soft 500 31 (3ply)",
-    "Soft 500 (31) classic",
-    "Soft 500 (31) smart",
-    "Soft 600 (31) 3ply",
-    "New mazika 220 (41)",
-    "New Mazika 250 (51)"
+    "Soft 400 3*1",
+    "Soft 500 3*1 (3ply)",
+    "Soft 500 (3*1) classic",
+    "Soft 500 (3*1) smart",
+    "Soft 600 (3*1) 3ply",
+    "New mazika 220 (4*1)",
+    "New Mazika 250 (5*1)"
   ],
   kitchen: [
     "Kitchen 2 Rolls",
@@ -40,7 +40,7 @@ export const PRODUCT_GROUPS = {
     "Soft Rose XL",
     "Soft Rose XXL"
   ],
-  toilet: [
+  hotel_toilet: [
     "Soft 2 Hotels Jumbo",
     "Soft 2 Hotels mauve",
     "Soft 2 Hotel Compress",

@@ -4,11 +4,10 @@ import {
   Users, ShoppingCart, History, Package, ClipboardList, 
   TrendingUp, BarChart, Settings as SettingsIcon, 
   LogOut, Menu, X, Bell, MessageCircle, Calendar,
-  Loader2, Wifi, WifiOff, Palette, Copy, Trash2
+  Loader2, Wifi, WifiOff, Palette, Copy, Trash2, User as UserIcon
 } from 'lucide-react';
 import { db, ref, onValue, set, update, push, remove } from './firebase';
 import { User, AppSettings, Notification, AppTheme, Market, Company } from './types';
-import { INITIAL_MARKETS } from './constants';
 
 // View Components
 import DailySales from './views/DailySales';
@@ -64,15 +63,17 @@ const App: React.FC = () => {
     setIsLoading(false);
   }, []);
 
-  // Notification syncing
   useEffect(() => {
     if (user) {
-      onValue(ref(db, 'notifications'), (snapshot) => {
+      const notifRef = ref(db, 'notifications');
+      onValue(notifRef, (snapshot) => {
         const data = snapshot.val();
         if (data) {
           const allNotifs = Object.entries(data).map(([id, val]: any) => ({ ...val, id }));
           const myNotifs = allNotifs.filter(n => n.receiverId === 'all' || n.receiverId === user.id);
           setNotifications(myNotifs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+        } else {
+          setNotifications([]);
         }
       });
     }
@@ -96,10 +97,22 @@ const App: React.FC = () => {
 
   const copyNotifText = (text: string) => {
     navigator.clipboard.writeText(text);
-    alert('تم نسخ النص');
+    alert('تم نسخ نص الرسالة');
   };
 
-  if (isLoading) return <div className="h-screen flex items-center justify-center bg-rose-50"><Loader2 className="animate-spin text-rose-600" size={48}/></div>;
+  const cycleTheme = () => {
+    if (theme === 'standard') setTheme('glass');
+    else if (theme === 'glass') setTheme('dark');
+    else setTheme('standard');
+  };
+
+  if (isLoading) return (
+    <div className="h-screen flex flex-col items-center justify-center bg-rose-50">
+      <Loader2 className="animate-spin text-rose-600 mb-4" size={48}/>
+      <p className="text-rose-900 font-bold animate-pulse">جاري تحميل نظام Soft Rose...</p>
+    </div>
+  );
+
   if (!user) return <Login onLogin={handleLogin} />;
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
@@ -112,121 +125,151 @@ const App: React.FC = () => {
     { id: 'competitor-prices', label: 'أسعار المنافسين', icon: <TrendingUp size={20}/>, visible: user.role === 'admin' || user.permissions?.viewCompetitorPrices },
     { id: 'competitor-reports', label: 'تقارير المنافسين', icon: <BarChart size={20}/>, visible: user.role === 'admin' || user.permissions?.viewCompetitorReports },
     { id: 'vacation-mgmt', label: 'رصيد الاجازات', icon: <Calendar size={20}/>, visible: true },
-    { id: 'settings', label: 'لوحة التحكم', icon: <SettingsIcon size={20}/>, visible: user.role === 'admin' },
+    { id: 'settings', label: 'إعدادات النظام', icon: <SettingsIcon size={20}/>, visible: user.role === 'admin' },
   ].filter(i => i.visible);
 
   return (
-    <div className={`flex h-screen overflow-hidden theme-${theme} transition-all`}>
-      {/* Overlay for sidebar */}
+    <div className={`flex h-screen overflow-hidden theme-${theme} transition-all duration-300 relative`}>
+      {/* Overlay for auto-closing sidebar on mobile */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/40 z-40 md:hidden" 
+          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" 
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
       {/* Sidebar */}
-      <aside className={`bg-rose-900 text-white w-64 flex-shrink-0 transition-all z-50 fixed md:relative inset-y-0 ${isSidebarOpen ? 'right-0' : '-right-64 md:right-0'} ${theme === 'glass' ? 'bg-rose-900/80 backdrop-blur-md' : ''}`}>
-        <div className="p-4 flex flex-col h-full">
-          <div className="mb-6 flex items-center justify-between">
-            <div>
-              <p className="text-[10px] uppercase font-bold text-rose-300">Soft Rose</p>
-              <h1 className="text-lg font-black tracking-tighter">Modern Trade</h1>
+      <aside className={`bg-rose-900 text-white w-72 flex-shrink-0 transition-all duration-300 z-50 fixed md:relative inset-y-0 ${isSidebarOpen ? 'right-0' : '-right-72 md:right-0'} ${theme === 'glass' ? 'bg-rose-900/70 backdrop-blur-xl border-l border-white/10' : ''} shadow-2xl`}>
+        <div className="p-6 flex flex-col h-full">
+          <div className="mb-8 flex items-center justify-between">
+            <div className="flex flex-col">
+              <span className="text-[10px] uppercase font-black tracking-widest text-rose-300">SOFT ROSE</span>
+              <h1 className="text-xl font-black tracking-tighter">Modern Trade</h1>
             </div>
-            <button onClick={() => setIsSidebarOpen(false)} className="md:hidden"><X/></button>
+            <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 hover:bg-white/10 rounded-full"><X size={20}/></button>
           </div>
           
-          <nav className="flex-1 space-y-1">
+          <nav className="flex-1 space-y-1.5 overflow-y-auto custom-scrollbar pr-2">
             {sidebarItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${activeTab === item.id ? 'bg-white text-rose-900 font-bold' : 'hover:bg-white/10'}`}
+                className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-200 ${activeTab === item.id ? 'bg-white text-rose-900 font-bold shadow-xl shadow-black/10' : 'hover:bg-white/10 opacity-80 hover:opacity-100'}`}
               >
-                {item.icon}
-                <span>{item.label}</span>
+                <span className={activeTab === item.id ? 'text-rose-600' : 'text-white'}>{item.icon}</span>
+                <span className="text-sm">{item.label}</span>
               </button>
             ))}
 
+            {/* Admin-only connection list */}
             {user.role === 'admin' && (
-              <div className="mt-8 pt-4 border-t border-white/10">
-                <p className="text-[10px] uppercase text-rose-300 px-4 mb-2">الموظفون المتصلون</p>
-                <div className="space-y-2 max-h-40 overflow-y-auto custom-scrollbar">
+              <div className="mt-10 pt-6 border-t border-white/10">
+                <p className="text-[10px] uppercase text-rose-400 px-5 mb-4 font-black tracking-widest">الموظفون المتصلون</p>
+                <div className="space-y-3">
                   {users.map(u => (
-                    <div key={u.id} className="flex items-center gap-2 px-4 py-1 text-sm">
-                      <span className={`w-2 h-2 rounded-full ${u.isOnline ? 'bg-blue-400' : 'bg-rose-700'}`}></span>
-                      <span className={u.isOnline ? 'text-white' : 'text-rose-300'}>{u.employeeName}</span>
+                    <div key={u.id} className="flex items-center gap-3 px-5">
+                      <div className="relative">
+                        <div className={`w-2.5 h-2.5 rounded-full ${u.isOnline ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'bg-rose-800'}`}></div>
+                      </div>
+                      <span className={`text-xs font-bold ${u.isOnline ? 'text-white' : 'text-rose-400/60'}`}>{u.employeeName}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
           </nav>
-
-          <div className="pt-4 border-t border-white/20">
-            <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-red-500 transition">
-              <LogOut size={20}/>
-              <span>تسجيل الخروج</span>
-            </button>
+          
+          <div className="mt-4 text-[10px] text-center text-rose-400/40 uppercase font-bold tracking-widest">
+            System v3.0.0 Stable
           </div>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className={`flex-1 flex flex-col min-w-0 overflow-hidden ${theme === 'dark' ? 'bg-black' : 'bg-[#FDFDFD]'}`}>
+      <main className={`flex-1 flex flex-col min-w-0 overflow-hidden ${theme === 'dark' ? 'bg-[#0a0a0a]' : 'bg-[#F9FAFB]'}`}>
         {/* Header */}
-        <header className={`h-16 flex items-center justify-between px-6 border-b transition-colors ${theme === 'glass' ? 'bg-white/30 backdrop-blur-md' : 'bg-white'} ${theme === 'dark' ? 'bg-[#1a1a1a] border-[#333]' : ''}`}>
-          <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 hover:bg-gray-100 rounded-lg">
+        <header className={`h-20 flex items-center justify-between px-8 border-b transition-all duration-300 z-30 ${theme === 'glass' ? 'bg-white/40 backdrop-blur-md border-white/20 shadow-sm' : 'bg-white shadow-sm'} ${theme === 'dark' ? 'bg-[#121212] border-[#222]' : ''}`}>
+          <div className="flex items-center gap-6">
+            <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-3 hover:bg-rose-50 rounded-2xl transition-all">
               <Menu size={24} className="text-rose-800" />
             </button>
-            <div className="flex items-center gap-2">
-              <span className="font-black text-rose-800 text-lg hidden sm:block uppercase tracking-tighter">
+            <div className="flex flex-col">
+              <h2 className="font-black text-rose-900 text-lg md:text-2xl tracking-tighter uppercase leading-tight">
                 {settings?.programName || 'Soft Rose Modern Trade'}
-              </span>
-              <div className="w-px h-6 bg-gray-200 mx-2 hidden sm:block"></div>
-              <span className="font-bold text-gray-700">{user.employeeName}</span>
+              </h2>
+              <div className="flex items-center gap-2 mt-0.5">
+                <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
+                  {user.employeeName} <span className="opacity-30">|</span> {user.role === 'admin' ? 'Manager' : 'Staff'}
+                </span>
+              </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Connection Indicator */}
-            <div className="flex items-center gap-1 ml-4" title={isOnline ? 'متصل' : 'غير متصل'}>
-              {isOnline ? <Wifi size={18} className="text-blue-500" /> : <WifiOff size={18} className="text-red-500" />}
+          <div className="flex items-center gap-3">
+             {/* Connection & Theme Tools */}
+            <div className="flex items-center bg-slate-100/50 p-1 rounded-2xl gap-1 mr-4 hidden sm:flex">
+              <div className={`p-2 rounded-xl ${isOnline ? 'text-blue-600' : 'text-red-500'}`} title={isOnline ? 'متصل' : 'أنت غير متصل'}>
+                {isOnline ? <Wifi size={18} /> : <WifiOff size={18} />}
+              </div>
+              <button 
+                onClick={cycleTheme} 
+                className="p-2.5 hover:bg-white hover:shadow-md rounded-xl text-gray-500 transition-all group"
+                title="تغيير ستايل البرنامج"
+              >
+                <Palette size={20} className="group-hover:rotate-12 transition-transform" />
+              </button>
             </div>
 
-            <button onClick={() => setTheme(theme === 'dark' ? 'standard' : theme === 'glass' ? 'dark' : 'glass')} className="p-2 hover:bg-gray-100 rounded-full text-gray-500 transition-all">
-              <Palette size={20} />
-            </button>
-
             {settings?.whatsappNumber && (
-              <a href={`https://wa.me/${settings.whatsappNumber}`} target="_blank" className="p-2 bg-green-500 text-white rounded-full hover:bg-green-600 transition-all shadow-lg shadow-green-100">
-                <MessageCircle size={20} />
+              <a 
+                href={`https://wa.me/${settings.whatsappNumber}`} 
+                target="_blank" 
+                className="p-3 bg-green-500 text-white rounded-2xl hover:bg-green-600 hover:scale-105 transition-all shadow-lg shadow-green-100"
+                title="تواصل واتساب"
+              >
+                <MessageCircle size={22} />
               </a>
             )}
 
-            <button onClick={() => setIsNotificationOpen(true)} className="relative p-2 hover:bg-rose-50 rounded-full group">
-              <Bell size={22} className="text-gray-500 group-hover:text-rose-600" />
+            <div className="h-8 w-px bg-gray-200 mx-2"></div>
+
+            <button 
+              onClick={() => setIsNotificationOpen(true)} 
+              className="relative p-3 hover:bg-rose-50 rounded-2xl group transition-all"
+              title="الإشعارات والرسائل"
+            >
+              <Bell size={24} className="text-gray-500 group-hover:text-rose-600" />
               {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 w-3 h-3 bg-red-500 border-2 border-white rounded-full animate-pulse"></span>
+                <span className="absolute top-2.5 right-2.5 w-3.5 h-3.5 bg-red-600 border-2 border-white rounded-full animate-pulse shadow-sm"></span>
               )}
+            </button>
+
+            <button 
+              onClick={handleLogout} 
+              className="flex items-center gap-2 p-3 bg-rose-50 text-rose-800 rounded-2xl hover:bg-rose-100 hover:text-rose-900 transition-all font-bold text-sm border border-rose-100"
+              title="تسجيل الخروج"
+            >
+              <LogOut size={20} />
+              <span className="hidden lg:inline">خروج</span>
             </button>
           </div>
         </header>
 
-        {/* Ticker */}
+        {/* Ticker Section */}
         {settings?.tickerText && (
-          <div className="bg-rose-950 py-1.5 text-white text-xs overflow-hidden">
+          <div className="bg-rose-950 py-2 text-white text-[13px] overflow-hidden border-b border-rose-900/50 shadow-inner">
             <div className="ticker-container">
-              <div className="ticker-text font-bold" style={{ animationDuration: '40s' }}>
-                {settings.tickerText} &nbsp;&nbsp; | &nbsp;&nbsp; {settings.tickerText}
+              <div className="ticker-text font-bold opacity-90" style={{ animationDuration: '45s' }}>
+                {settings.tickerText} &nbsp;&nbsp; ★ &nbsp;&nbsp; {settings.tickerText} &nbsp;&nbsp; ★ &nbsp;&nbsp; {settings.tickerText}
               </div>
             </div>
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8">
-          <div className="max-w-7xl mx-auto">
+        {/* Views Router */}
+        <div className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar" onClick={() => isSidebarOpen && setIsSidebarOpen(false)}>
+          <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500">
             {activeTab === 'daily-sales' && <DailySales user={user} markets={markets.map(m => m.name)} />}
             {activeTab === 'sales-history' && <SalesHistory user={user} markets={markets.map(m => m.name)} users={users} />}
             {activeTab === 'inventory-reg' && <InventoryRegistration user={user} markets={markets.map(m => m.name)} />}
@@ -241,29 +284,49 @@ const App: React.FC = () => {
 
       {/* Notification Modal */}
       {isNotificationOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setIsNotificationOpen(false)}>
-          <div className="bg-white rounded-[2rem] w-full max-w-md overflow-hidden shadow-2xl" onClick={e => e.stopPropagation()}>
-            <div className="bg-rose-900 p-6 text-white flex justify-between items-center">
-              <h3 className="text-xl font-bold">الإشعارات والرسائل</h3>
-              <button onClick={() => setIsNotificationOpen(false)}><X/></button>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setIsNotificationOpen(false)}>
+          <div className="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
+            <div className="bg-rose-900 p-8 text-white flex justify-between items-center">
+              <div>
+                <h3 className="text-2xl font-black tracking-tight">صندوق الرسائل</h3>
+                <p className="text-rose-300 text-xs font-bold uppercase mt-1">Admin Communication Center</p>
+              </div>
+              <button onClick={() => setIsNotificationOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                <X size={28}/>
+              </button>
             </div>
-            <div className="p-6 max-h-[70vh] overflow-y-auto space-y-4">
+            <div className="p-8 max-h-[60vh] overflow-y-auto space-y-6 custom-scrollbar bg-slate-50/50">
               {notifications.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">لا توجد رسائل حالياً</div>
+                <div className="text-center py-20">
+                  <Bell className="mx-auto text-gray-200 mb-4" size={60} />
+                  <p className="text-gray-400 font-bold">لا توجد رسائل جديدة في بريدك</p>
+                </div>
               ) : (
                 notifications.map(n => (
-                  <div key={n.id} className="p-4 bg-rose-50 rounded-2xl border border-rose-100 relative group">
-                    <p className="text-sm font-medium text-rose-900 mb-3">{n.message}</p>
-                    <div className="flex items-center justify-between text-[10px] text-rose-400 font-bold uppercase">
-                      <span>{new Date(n.timestamp).toLocaleString('ar-EG')}</span>
-                      <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                        <button onClick={() => copyNotifText(n.message)} className="p-1.5 bg-white rounded-lg shadow-sm hover:text-rose-600"><Copy size={14}/></button>
-                        <button onClick={() => deleteNotification(n.id)} className="p-1.5 bg-white rounded-lg shadow-sm hover:text-red-600"><Trash2 size={14}/></button>
+                  <div key={n.id} className="p-6 bg-white rounded-3xl border border-rose-100 shadow-sm relative group hover:shadow-md transition-all">
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-600">
+                        <UserIcon size={20} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[15px] font-bold text-gray-800 leading-relaxed mb-4">{n.message}</p>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] text-rose-300 font-black uppercase tracking-widest bg-rose-50 px-3 py-1 rounded-full">
+                            {new Date(n.timestamp).toLocaleDateString('ar-EG')} - {new Date(n.timestamp).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})}
+                          </span>
+                          <div className="flex gap-2">
+                            <button onClick={() => copyNotifText(n.message)} className="p-2.5 bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all" title="نسخ"><Copy size={16}/></button>
+                            <button onClick={() => deleteNotification(n.id)} className="p-2.5 bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="حذف"><Trash2 size={16}/></button>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
                 ))
               )}
+            </div>
+            <div className="p-6 border-t bg-white text-center">
+               <button onClick={() => setIsNotificationOpen(false)} className="px-10 py-3 bg-rose-800 text-white rounded-2xl font-black text-sm hover:bg-rose-900 transition-all shadow-lg shadow-rose-100">إغلاق التنبيهات</button>
             </div>
           </div>
         </div>
