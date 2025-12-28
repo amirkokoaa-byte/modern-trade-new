@@ -1,8 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { User } from '../types';
 import { COMPANIES, PRODUCT_GROUPS } from '../constants';
-import { Save, Plus, Trash2 } from 'lucide-react';
+import { Save, Plus, Trash2, TrendingUp, PlusCircle } from 'lucide-react';
 import { db, ref, push } from '../firebase';
 
 interface Props {
@@ -16,8 +16,22 @@ const CompetitorPrices: React.FC<Props> = ({ user, markets }) => {
   const [prices, setPrices] = useState<Record<string, { name: string, price: number }[]>>({
     facial: [],
     kitchen: [],
-    toilet: []
+    hotel_toilet: [],
+    dolphin: []
   });
+
+  // When Soft Rose is picked, auto-load internal products
+  useEffect(() => {
+    if (selectedCompany === 'سوفت روز') {
+      const internalPrices: any = {};
+      Object.entries(PRODUCT_GROUPS).forEach(([cat, products]) => {
+        internalPrices[cat] = products.map(p => ({ name: p, price: 0 }));
+      });
+      setPrices(internalPrices);
+    } else {
+      setPrices({ facial: [], kitchen: [], hotel_toilet: [], dolphin: [] });
+    }
+  }, [selectedCompany]);
 
   const addPriceRow = (category: string) => {
     setPrices(prev => ({
@@ -47,31 +61,69 @@ const CompetitorPrices: React.FC<Props> = ({ user, markets }) => {
       return;
     }
 
+    const filteredCategories: any = {};
+    let hasData = false;
+    // Fix: Cast 'items' to expected array type to prevent 'unknown' inference in Object.entries
+    Object.entries(prices).forEach(([cat, items]) => {
+      const productItems = items as { name: string, price: number }[];
+      const valid = productItems.filter(i => i.name.trim() !== '' && i.price > 0);
+      if (valid.length > 0) {
+        filteredCategories[cat] = valid;
+        hasData = true;
+      }
+    });
+
+    if (!hasData) {
+      alert("يرجى إدخال اسم منتج وسعر واحد على الأقل");
+      return;
+    }
+
     try {
       await push(ref(db, 'competitor_prices'), {
         userId: user.id,
+        userName: user.employeeName,
         marketName: selectedMarket,
         companyName: selectedCompany,
         date: new Date().toISOString(),
-        categories: prices
+        categories: filteredCategories
       });
       alert("تم حفظ الأسعار بنجاح");
-      setPrices({ facial: [], kitchen: [], toilet: [] });
+      setPrices({ facial: [], kitchen: [], hotel_toilet: [], dolphin: [] });
+      setSelectedCompany('');
+      setSelectedMarket('');
     } catch (e) {
       alert("حدث خطأ أثناء الحفظ");
     }
   };
 
+  const getCategoryLabel = (cat: string) => {
+    switch(cat) {
+      case 'facial': return 'مناديل سحب (Facial)';
+      case 'kitchen': return 'مناديل مطبخ (Kitchen)';
+      case 'hotel_toilet': return 'تواليت فنادق (Hotel Toilet)';
+      case 'dolphin': return 'دولفن (Dolphin)';
+      default: return cat;
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto pb-20">
-      <div className="bg-white rounded-xl shadow-sm border p-6">
-        <h2 className="text-2xl font-bold text-rose-800 mb-6">تسجيل أسعار المنافسين</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+      <div className="bg-white rounded-[2.5rem] shadow-sm border border-rose-50 p-8 md:p-10">
+        <div className="flex items-center gap-4 mb-10">
+          <div className="p-4 bg-amber-100 text-amber-800 rounded-3xl">
+            <TrendingUp size={32} />
+          </div>
           <div>
-            <label className="block text-sm font-medium mb-1">الماركت</label>
+            <h2 className="text-2xl font-black text-rose-900">تسعير المنافسين</h2>
+            <p className="text-rose-400 text-xs font-bold uppercase tracking-widest mt-1">Competitor Market Pricing</p>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10 bg-slate-50 p-8 rounded-3xl border border-slate-100">
+          <div>
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 mr-2">الماركت المستهدف</label>
             <select 
-              className="w-full border rounded-lg p-2"
+              className="w-full bg-white border-2 border-transparent focus:border-rose-200 rounded-2xl p-4 outline-none font-bold text-gray-700 shadow-sm"
               value={selectedMarket}
               onChange={(e) => setSelectedMarket(e.target.value)}
             >
@@ -80,9 +132,9 @@ const CompetitorPrices: React.FC<Props> = ({ user, markets }) => {
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">الشركة</label>
+            <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 mr-2">الشركة المنافسة</label>
             <select 
-              className="w-full border rounded-lg p-2"
+              className="w-full bg-white border-2 border-transparent focus:border-rose-200 rounded-2xl p-4 outline-none font-bold text-gray-700 shadow-sm"
               value={selectedCompany}
               onChange={(e) => setSelectedCompany(e.target.value)}
             >
@@ -92,43 +144,47 @@ const CompetitorPrices: React.FC<Props> = ({ user, markets }) => {
           </div>
         </div>
 
-        {['facial', 'kitchen', 'toilet'].map(cat => (
-          <div key={cat} className="mb-8">
-            <div className="bg-gray-200 p-2 font-bold mb-3 rounded">
-              {cat === 'facial' ? 'مناديل سحب (Facial)' : cat === 'kitchen' ? 'مناديل مطبخ (Kitchen)' : 'تواليت (Toilet)'}
+        {selectedCompany && ['facial', 'kitchen', 'hotel_toilet', 'dolphin'].map(cat => (
+          <div key={cat} className="mb-10 animate-in fade-in duration-300">
+            <div className="bg-slate-100 px-6 py-4 font-black text-slate-600 rounded-2xl mb-4 text-sm flex items-center justify-between">
+              <span>{getCategoryLabel(cat)}</span>
             </div>
-            <div className="space-y-2 mb-3">
-              {prices[cat].map((row, idx) => (
-                <div key={idx} className="flex gap-2">
+            <div className="space-y-3 mb-4">
+              {prices[cat]?.map((row, idx) => (
+                <div key={idx} className="flex gap-3 bg-white border border-slate-100 p-4 rounded-3xl group transition-all hover:border-rose-200">
                   <input 
-                    placeholder="اسم الصنف" className="flex-1 border rounded p-2 text-sm"
+                    placeholder="اسم المنتج المنافس..." 
+                    className="flex-1 bg-slate-50 border-2 border-transparent focus:border-rose-200 rounded-2xl p-4 font-bold text-gray-700 outline-none"
                     value={row.name} onChange={(e) => updatePriceRow(cat, idx, 'name', e.target.value)}
                   />
                   <input 
-                    type="number" placeholder="السعر" className="w-24 border rounded p-2 text-sm"
+                    type="number" placeholder="السعر" 
+                    className="w-28 bg-slate-50 border-2 border-transparent focus:border-rose-200 rounded-2xl p-4 text-center font-black text-rose-900 outline-none"
                     value={row.price || ''} onChange={(e) => updatePriceRow(cat, idx, 'price', Number(e.target.value))}
                   />
-                  <button onClick={() => removePriceRow(cat, idx)} className="text-red-500 p-2"><Trash2 size={18}/></button>
+                  <button onClick={() => removePriceRow(cat, idx)} className="p-4 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all"><Trash2 size={20}/></button>
                 </div>
               ))}
             </div>
             <button 
               onClick={() => addPriceRow(cat)}
-              className="text-rose-600 text-sm font-bold flex items-center gap-1 hover:underline"
+              className="w-full py-4 border-2 border-dashed border-slate-200 rounded-[2rem] text-slate-400 font-black text-xs flex items-center justify-center gap-2 hover:bg-rose-50 hover:border-rose-200 hover:text-rose-700 transition-all"
             >
-              <Plus size={16}/> اضف منتج
+              <PlusCircle size={18}/> إضافة صنف جديد لهذا القسم
             </button>
           </div>
         ))}
 
-        <div className="mt-10 border-t pt-6">
-          <button 
-            onClick={handleSave}
-            className="w-full bg-rose-600 text-white py-3 rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-rose-700 transition"
-          >
-            <Save size={20}/> حفظ الأسعار
-          </button>
-        </div>
+        {selectedCompany && (
+          <div className="mt-12 pt-8 border-t border-slate-100">
+            <button 
+              onClick={handleSave}
+              className="w-full bg-amber-600 text-white py-6 rounded-[2rem] font-black text-lg flex items-center justify-center gap-3 hover:bg-amber-700 hover:scale-[1.02] transition-all shadow-2xl shadow-amber-100"
+            >
+              <Save size={24}/> ترحيل وحفظ تقرير الأسعار
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -50,18 +50,30 @@ const App: React.FC = () => {
       if (data) setUsers(Object.values(data));
     });
 
-    // Sync markets & companies
-    onValue(ref(db, 'markets'), (snapshot) => {
-      const data = snapshot.val();
-      if (data) setMarkets(Object.entries(data).map(([id, val]: any) => ({ id, name: val.name })));
-    });
-    onValue(ref(db, 'companies'), (snapshot) => {
-      const data = snapshot.val();
-      if (data) setCompanies(Object.entries(data).map(([id, val]: any) => ({ id, name: val.name })));
-    });
-
     setIsLoading(false);
   }, []);
+
+  // Sync markets & companies with privacy filter
+  useEffect(() => {
+    if (user) {
+      onValue(ref(db, 'markets'), (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          const list = Object.entries(data).map(([id, val]: any) => ({ id, ...val }));
+          const filtered = list.filter(m => user.role === 'admin' || m.creatorId === user.id || !m.creatorId);
+          setMarkets(filtered);
+        }
+      });
+      onValue(ref(db, 'companies'), (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          const list = Object.entries(data).map(([id, val]: any) => ({ id, ...val }));
+          const filtered = list.filter(c => user.role === 'admin' || c.creatorId === user.id || !c.creatorId);
+          setCompanies(filtered);
+        }
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     if (user) {
@@ -95,11 +107,6 @@ const App: React.FC = () => {
     remove(ref(db, `notifications/${id}`));
   };
 
-  const copyNotifText = (text: string) => {
-    navigator.clipboard.writeText(text);
-    alert('تم نسخ نص الرسالة');
-  };
-
   const cycleTheme = () => {
     if (theme === 'standard') setTheme('glass');
     else if (theme === 'glass') setTheme('dark');
@@ -130,7 +137,6 @@ const App: React.FC = () => {
 
   return (
     <div className={`flex h-screen overflow-hidden theme-${theme} transition-all duration-300 relative`}>
-      {/* Overlay for auto-closing sidebar on mobile */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" 
@@ -138,7 +144,6 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Sidebar */}
       <aside className={`bg-rose-900 text-white w-72 flex-shrink-0 transition-all duration-300 z-50 fixed md:relative inset-y-0 ${isSidebarOpen ? 'right-0' : '-right-72 md:right-0'} ${theme === 'glass' ? 'bg-rose-900/70 backdrop-blur-xl border-l border-white/10' : ''} shadow-2xl`}>
         <div className="p-6 flex flex-col h-full">
           <div className="mb-8 flex items-center justify-between">
@@ -161,7 +166,6 @@ const App: React.FC = () => {
               </button>
             ))}
 
-            {/* Admin-only connection list */}
             {user.role === 'admin' && (
               <div className="mt-10 pt-6 border-t border-white/10">
                 <p className="text-[10px] uppercase text-rose-400 px-5 mb-4 font-black tracking-widest">الموظفون المتصلون</p>
@@ -178,16 +182,24 @@ const App: React.FC = () => {
               </div>
             )}
           </nav>
-          
           <div className="mt-4 text-[10px] text-center text-rose-400/40 uppercase font-bold tracking-widest">
             System v3.0.0 Stable
           </div>
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className={`flex-1 flex flex-col min-w-0 overflow-hidden ${theme === 'dark' ? 'bg-[#0a0a0a]' : 'bg-[#F9FAFB]'}`}>
-        {/* Header */}
+        {/* Ticker at the VERY top */}
+        {settings?.tickerText && (
+          <div className="bg-rose-950 py-2 text-white text-[13px] overflow-hidden border-b border-rose-900/50 shadow-inner z-50">
+            <div className="ticker-container">
+              <div className="ticker-text font-bold opacity-90" style={{ animationDuration: '45s' }}>
+                {settings.tickerText} &nbsp;&nbsp; ★ &nbsp;&nbsp; {settings.tickerText} &nbsp;&nbsp; ★ &nbsp;&nbsp; {settings.tickerText}
+              </div>
+            </div>
+          </div>
+        )}
+
         <header className={`h-20 flex items-center justify-between px-8 border-b transition-all duration-300 z-30 ${theme === 'glass' ? 'bg-white/40 backdrop-blur-md border-white/20 shadow-sm' : 'bg-white shadow-sm'} ${theme === 'dark' ? 'bg-[#121212] border-[#222]' : ''}`}>
           <div className="flex items-center gap-6">
             <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-3 hover:bg-rose-50 rounded-2xl transition-all">
@@ -207,68 +219,30 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-3">
-             {/* Connection & Theme Tools */}
             <div className="flex items-center bg-slate-100/50 p-1 rounded-2xl gap-1 mr-4 hidden sm:flex">
               <div className={`p-2 rounded-xl ${isOnline ? 'text-blue-600' : 'text-red-500'}`} title={isOnline ? 'متصل' : 'أنت غير متصل'}>
                 {isOnline ? <Wifi size={18} /> : <WifiOff size={18} />}
               </div>
-              <button 
-                onClick={cycleTheme} 
-                className="p-2.5 hover:bg-white hover:shadow-md rounded-xl text-gray-500 transition-all group"
-                title="تغيير ستايل البرنامج"
-              >
+              <button onClick={cycleTheme} className="p-2.5 hover:bg-white hover:shadow-md rounded-xl text-gray-500 transition-all group">
                 <Palette size={20} className="group-hover:rotate-12 transition-transform" />
               </button>
             </div>
 
-            {settings?.whatsappNumber && (
-              <a 
-                href={`https://wa.me/${settings.whatsappNumber}`} 
-                target="_blank" 
-                className="p-3 bg-green-500 text-white rounded-2xl hover:bg-green-600 hover:scale-105 transition-all shadow-lg shadow-green-100"
-                title="تواصل واتساب"
-              >
-                <MessageCircle size={22} />
-              </a>
-            )}
-
-            <div className="h-8 w-px bg-gray-200 mx-2"></div>
-
-            <button 
-              onClick={() => setIsNotificationOpen(true)} 
-              className="relative p-3 hover:bg-rose-50 rounded-2xl group transition-all"
-              title="الإشعارات والرسائل"
-            >
+            <button onClick={() => setIsNotificationOpen(true)} className="relative p-3 hover:bg-rose-50 rounded-2xl group transition-all">
               <Bell size={24} className="text-gray-500 group-hover:text-rose-600" />
               {unreadCount > 0 && (
                 <span className="absolute top-2.5 right-2.5 w-3.5 h-3.5 bg-red-600 border-2 border-white rounded-full animate-pulse shadow-sm"></span>
               )}
             </button>
 
-            <button 
-              onClick={handleLogout} 
-              className="flex items-center gap-2 p-3 bg-rose-50 text-rose-800 rounded-2xl hover:bg-rose-100 hover:text-rose-900 transition-all font-bold text-sm border border-rose-100"
-              title="تسجيل الخروج"
-            >
+            <button onClick={handleLogout} className="flex items-center gap-2 p-3 bg-rose-50 text-rose-800 rounded-2xl hover:bg-rose-100 hover:text-rose-900 transition-all font-bold text-sm border border-rose-100">
               <LogOut size={20} />
               <span className="hidden lg:inline">خروج</span>
             </button>
           </div>
         </header>
 
-        {/* Ticker Section */}
-        {settings?.tickerText && (
-          <div className="bg-rose-950 py-2 text-white text-[13px] overflow-hidden border-b border-rose-900/50 shadow-inner">
-            <div className="ticker-container">
-              <div className="ticker-text font-bold opacity-90" style={{ animationDuration: '45s' }}>
-                {settings.tickerText} &nbsp;&nbsp; ★ &nbsp;&nbsp; {settings.tickerText} &nbsp;&nbsp; ★ &nbsp;&nbsp; {settings.tickerText}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Views Router */}
-        <div className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar" onClick={() => isSidebarOpen && setIsSidebarOpen(false)}>
+        <div className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar">
           <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500">
             {activeTab === 'daily-sales' && <DailySales user={user} markets={markets.map(m => m.name)} />}
             {activeTab === 'sales-history' && <SalesHistory user={user} markets={markets.map(m => m.name)} users={users} />}
@@ -282,7 +256,6 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Notification Modal */}
       {isNotificationOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setIsNotificationOpen(false)}>
           <div className="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
@@ -297,26 +270,18 @@ const App: React.FC = () => {
             </div>
             <div className="p-8 max-h-[60vh] overflow-y-auto space-y-6 custom-scrollbar bg-slate-50/50">
               {notifications.length === 0 ? (
-                <div className="text-center py-20">
-                  <Bell className="mx-auto text-gray-200 mb-4" size={60} />
-                  <p className="text-gray-400 font-bold">لا توجد رسائل جديدة في بريدك</p>
-                </div>
+                <div className="text-center py-20"><Bell className="mx-auto text-gray-200 mb-4" size={60} /><p className="text-gray-400 font-bold">لا توجد رسائل جديدة</p></div>
               ) : (
                 notifications.map(n => (
                   <div key={n.id} className="p-6 bg-white rounded-3xl border border-rose-100 shadow-sm relative group hover:shadow-md transition-all">
                     <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-600">
-                        <UserIcon size={20} />
-                      </div>
+                      <div className="w-10 h-10 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-600"><UserIcon size={20} /></div>
                       <div className="flex-1">
                         <p className="text-[15px] font-bold text-gray-800 leading-relaxed mb-4">{n.message}</p>
                         <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-rose-300 font-black uppercase tracking-widest bg-rose-50 px-3 py-1 rounded-full">
-                            {new Date(n.timestamp).toLocaleDateString('ar-EG')} - {new Date(n.timestamp).toLocaleTimeString('ar-EG', {hour: '2-digit', minute:'2-digit'})}
-                          </span>
+                          <span className="text-[10px] text-rose-300 font-black uppercase tracking-widest bg-rose-50 px-3 py-1 rounded-full">{new Date(n.timestamp).toLocaleString('ar-EG')}</span>
                           <div className="flex gap-2">
-                            <button onClick={() => copyNotifText(n.message)} className="p-2.5 bg-slate-50 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-xl transition-all" title="نسخ"><Copy size={16}/></button>
-                            <button onClick={() => deleteNotification(n.id)} className="p-2.5 bg-slate-50 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all" title="حذف"><Trash2 size={16}/></button>
+                            <button onClick={() => deleteNotification(n.id)} className="p-2.5 bg-slate-50 text-slate-400 hover:text-red-600 rounded-xl transition-all"><Trash2 size={16}/></button>
                           </div>
                         </div>
                       </div>
@@ -324,9 +289,6 @@ const App: React.FC = () => {
                   </div>
                 ))
               )}
-            </div>
-            <div className="p-6 border-t bg-white text-center">
-               <button onClick={() => setIsNotificationOpen(false)} className="px-10 py-3 bg-rose-800 text-white rounded-2xl font-black text-sm hover:bg-rose-900 transition-all shadow-lg shadow-rose-100">إغلاق التنبيهات</button>
             </div>
           </div>
         </div>

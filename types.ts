@@ -21,7 +21,6 @@ export interface User {
   phone: string;
   isOnline: boolean;
   permissions: UserPermissions;
-  // canSeeAllSales is used in SalesHistory logic
   canSeeAllSales?: boolean;
   vacationBalance: {
     annual: number;
@@ -34,7 +33,7 @@ export interface User {
 export interface Notification {
   id: string;
   senderId: string;
-  receiverId: string; // 'all' or specific ID
+  receiverId: string;
   message: string;
   timestamp: string;
   isRead: boolean;
@@ -50,14 +49,15 @@ export interface AppSettings {
 export interface Market {
   id: string;
   name: string;
+  creatorId: string; // Added for privacy
 }
 
 export interface Company {
   id: string;
   name: string;
+  creatorId: string; // Added for privacy
 }
 
-// Added to fix errors in views/DailySales.tsx and views/SalesHistory.tsx
 export interface SaleItem {
   id: string;
   category: string;
@@ -76,7 +76,6 @@ export interface DailySale {
   total: number;
 }
 
-// Added to fix error in views/VacationManagement.tsx
 export interface Vacation {
   id: string;
   userId: string;
@@ -87,7 +86,6 @@ export interface Vacation {
   createdAt: string;
 }
 
-// Added to fix error in views/InventoryHistory.tsx
 export interface InventoryRecord {
   id: string;
   userId: string;
