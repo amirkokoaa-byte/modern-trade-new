@@ -1,168 +1,269 @@
 
 import React, { useState } from 'react';
-import { User, AppSettings } from '../types';
+import { User, AppSettings, Market, Company, Notification } from '../types';
 import { db, ref, update, set, push, remove } from '../firebase';
-import { Save, UserPlus, Shield, MessageCircle, AlertCircle } from 'lucide-react';
+import { 
+  Save, UserPlus, Shield, MessageCircle, AlertCircle, 
+  Store, Building2, UserCog, Send, Trash2, Edit,
+  // Fix: Added missing SettingsIcon import
+  Settings as SettingsIcon
+} from 'lucide-react';
 
 interface Props {
   user: User;
   settings: AppSettings | null;
   users: User[];
+  markets: Market[];
+  companies: Company[];
 }
 
-const Settings: React.FC<Props> = ({ user, settings, users }) => {
+const Settings: React.FC<Props> = ({ user, settings, users, markets, companies }) => {
+  const [activeSubTab, setActiveSubTab] = useState('general');
   const [newTickerText, setNewTickerText] = useState(settings?.tickerText || '');
+  const [newProgramName, setNewProgramName] = useState(settings?.programName || '');
   const [whatsapp, setWhatsapp] = useState(settings?.whatsappNumber || '');
+  
+  // User Management States
   const [newUser, setNewUser] = useState({ username: '', password: '', employeeName: '', role: 'user' as const });
+  const [editingPermissions, setEditingPermissions] = useState<string | null>(null);
+  const [messageTarget, setMessageTarget] = useState<string | null>(null);
+  const [messageText, setMessageText] = useState('');
 
-  const handleSaveSettings = async () => {
+  // Market/Company States
+  const [newItemName, setNewItemName] = useState('');
+
+  const handleSaveGeneral = async () => {
     await update(ref(db, 'settings'), {
       tickerText: newTickerText,
+      programName: newProgramName,
       whatsappNumber: whatsapp
     });
-    alert("تم حفظ الإعدادات");
+    alert("تم حفظ الإعدادات العامة");
   };
 
   const handleAddUser = async () => {
     if (!newUser.username || !newUser.password) return;
-    const usersRef = ref(db, 'users');
-    const newId = push(usersRef).key || '';
+    const newId = push(ref(db, 'users')).key || '';
     await set(ref(db, `users/${newId}`), {
       ...newUser,
       id: newId,
       isOnline: false,
-      canSeeAllSales: false,
+      permissions: {
+        viewColleaguesSales: false,
+        viewSalesHistory: true,
+        registerInventory: true,
+        viewInventoryHistory: true,
+        viewCompetitorReports: true,
+        viewCompetitorPrices: true,
+      },
       vacationBalance: { annual: 21, casual: 7, sick: 15, exams: 0 }
     });
     setNewUser({ username: '', password: '', employeeName: '', role: 'user' });
-    alert("تم إضافة المستخدم");
   };
 
-  const togglePermission = async (targetUser: User) => {
-    await update(ref(db, `users/${targetUser.id}`), {
-      canSeeAllSales: !targetUser.canSeeAllSales
+  const togglePerm = async (userId: string, perm: string, current: boolean) => {
+    await update(ref(db, `users/${userId}/permissions`), { [perm]: !current });
+  };
+
+  const sendNotification = async () => {
+    if (!messageText || !messageTarget) return;
+    await push(ref(db, 'notifications'), {
+      senderId: user.id,
+      receiverId: messageTarget,
+      message: messageText,
+      timestamp: new Date().toISOString(),
+      isRead: false
     });
+    setMessageText('');
+    setMessageTarget(null);
+    alert('تم إرسال الرسالة');
+  };
+
+  const addItem = async (type: 'markets' | 'companies') => {
+    if (!newItemName) return;
+    await push(ref(db, type), { name: newItemName });
+    setNewItemName('');
   };
 
   return (
-    <div className="space-y-8 max-w-4xl mx-auto">
-      <div className="bg-white p-6 rounded-xl shadow-sm border">
-        <h2 className="text-2xl font-bold text-rose-800 mb-6 flex items-center gap-2">
-          <Shield className="text-rose-600"/> إعدادات النظام
-        </h2>
-        
-        <div className="space-y-6">
-          {/* Ticker Settings */}
-          <div className="bg-slate-50 p-4 rounded-lg">
-            <h3 className="font-bold mb-3">إعدادات الشريط المتحرك (Ticker)</h3>
-            <textarea 
-              className="w-full border rounded-lg p-3 h-24 mb-3"
-              placeholder="اكتب النص الذي سيظهر في الشريط المتحرك..."
-              value={newTickerText}
-              onChange={(e) => setNewTickerText(e.target.value)}
-            />
-            <div className="flex gap-4 mb-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4" defaultChecked={settings?.showDailySalesTicker}/>
-                <span>ظهور المبيعات اليومية</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input type="checkbox" className="w-4 h-4" defaultChecked={settings?.showMonthlySalesTicker}/>
-                <span>ظهور المبيعات الشهرية</span>
-              </label>
-            </div>
-          </div>
+    <div className="space-y-6">
+      {/* Settings Navigation */}
+      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+        {[
+          { id: 'general', label: 'إعدادات عامة', icon: <SettingsIcon size={18}/> },
+          { id: 'users', label: 'الموظفون والصلاحيات', icon: <UserCog size={18}/> },
+          { id: 'markets', label: 'إدارة الماركتات', icon: <Store size={18}/> },
+          { id: 'companies', label: 'إدارة الشركات', icon: <Building2 size={18}/> },
+        ].map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveSubTab(tab.id)}
+            className={`flex items-center gap-2 px-6 py-3 rounded-2xl whitespace-nowrap transition-all font-bold ${activeSubTab === tab.id ? 'bg-rose-800 text-white shadow-lg' : 'bg-white text-gray-600 hover:bg-rose-50'}`}
+          >
+            {tab.icon} {tab.label}
+          </button>
+        ))}
+      </div>
 
-          {/* WhatsApp Settings */}
-          <div className="bg-slate-50 p-4 rounded-lg">
-            <h3 className="font-bold mb-3">إعدادات واتساب</h3>
-            <div className="flex gap-2">
+      {activeSubTab === 'general' && (
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-rose-100">
+          <h3 className="text-xl font-black text-rose-900 mb-8">الإعدادات العامة للنظام</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-gray-500 mr-2">اسم البرنامج</label>
               <input 
-                type="text" className="flex-1 border rounded-lg p-2"
-                placeholder="رقم الواتس اب (مثال: 201234567890)"
-                value={whatsapp}
-                onChange={(e) => setWhatsapp(e.target.value)}
+                className="w-full bg-slate-50 rounded-2xl p-4 border-2 border-transparent focus:border-rose-200 outline-none"
+                value={newProgramName} onChange={e => setNewProgramName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-bold text-gray-500 mr-2">رقم واتساب الدعم</label>
+              <input 
+                className="w-full bg-slate-50 rounded-2xl p-4 border-2 border-transparent focus:border-rose-200 outline-none"
+                value={whatsapp} onChange={e => setWhatsapp(e.target.value)}
+              />
+            </div>
+            <div className="md:col-span-2 space-y-2">
+              <label className="text-sm font-bold text-gray-500 mr-2">نص الشريط المتحرك (Ticker)</label>
+              <textarea 
+                className="w-full bg-slate-50 rounded-2xl p-4 border-2 border-transparent focus:border-rose-200 outline-none h-32"
+                value={newTickerText} onChange={e => setNewTickerText(e.target.value)}
               />
             </div>
           </div>
-
-          <button 
-            onClick={handleSaveSettings}
-            className="bg-rose-600 text-white px-8 py-2 rounded-lg font-bold hover:bg-rose-700 flex items-center gap-2"
-          >
-            <Save size={20}/> حفظ الإعدادات
-          </button>
+          <button onClick={handleSaveGeneral} className="bg-rose-800 text-white px-10 py-4 rounded-2xl font-black shadow-xl shadow-rose-200 hover:scale-[1.02] transition-all">حفظ الإعدادات العامة</button>
         </div>
-      </div>
+      )}
 
-      <div className="bg-white p-6 rounded-xl shadow-sm border">
-        <h2 className="text-2xl font-bold text-rose-800 mb-6 flex items-center gap-2">
-          <UserPlus className="text-rose-600"/> إدارة الحسابات
-        </h2>
+      {activeSubTab === 'users' && (
+        <div className="space-y-6">
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-rose-100">
+            <h3 className="text-xl font-black text-rose-900 mb-6 flex items-center gap-2">
+              <UserPlus className="text-rose-600"/> إضافة موظف جديد
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <input className="bg-slate-50 p-4 rounded-2xl outline-none" placeholder="الاسم الكامل" value={newUser.employeeName} onChange={e => setNewUser({...newUser, employeeName: e.target.value})}/>
+              <input className="bg-slate-50 p-4 rounded-2xl outline-none" placeholder="اسم المستخدم" value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})}/>
+              <input className="bg-slate-50 p-4 rounded-2xl outline-none" type="password" placeholder="كلمة المرور" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})}/>
+              <select className="bg-slate-50 p-4 rounded-2xl outline-none" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value as any})}>
+                <option value="user">موظف</option>
+                <option value="admin">مدير</option>
+              </select>
+            </div>
+            <button onClick={handleAddUser} className="mt-6 bg-blue-600 text-white px-8 py-3 rounded-xl font-bold">إضافة الموظف</button>
+          </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-8 bg-slate-50 p-4 rounded-lg">
-          <input 
-            className="border rounded p-2" placeholder="اسم المستخدم"
-            value={newUser.username} onChange={(e) => setNewUser({...newUser, username: e.target.value})}
-          />
-          <input 
-            type="password" className="border rounded p-2" placeholder="كلمة المرور"
-            value={newUser.password} onChange={(e) => setNewUser({...newUser, password: e.target.value})}
-          />
-          <input 
-            className="border rounded p-2" placeholder="اسم الموظف"
-            value={newUser.employeeName} onChange={(e) => setNewUser({...newUser, employeeName: e.target.value})}
-          />
-          <select 
-            className="border rounded p-2"
-            value={newUser.role} onChange={(e) => setNewUser({...newUser, role: e.target.value as any})}
-          >
-            <option value="user">مستخدم عادي</option>
-            <option value="admin">مدير (Admin)</option>
-          </select>
-          <button onClick={handleAddUser} className="bg-blue-600 text-white p-2 rounded col-span-1 md:col-span-4 font-bold">إضافة مستخدم جديد</button>
-        </div>
-
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b text-right">
-                <th className="p-3">الموظف</th>
-                <th className="p-3">الصلاحية</th>
-                <th className="p-3">رؤية الكل</th>
-                <th className="p-3">الحالة</th>
-                <th className="p-3 text-center">إجراءات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(u => (
-                <tr key={u.id} className="border-b hover:bg-gray-50">
-                  <td className="p-3 font-medium">{u.employeeName}</td>
-                  <td className="p-3">{u.role === 'admin' ? 'مدير' : 'موظف'}</td>
-                  <td className="p-3 text-center">
-                    <input 
-                      type="checkbox" 
-                      checked={u.canSeeAllSales} 
-                      onChange={() => togglePermission(u)}
-                      disabled={u.role === 'admin'}
-                    />
-                  </td>
-                  <td className="p-3">
-                    <span className={`flex items-center gap-2 ${u.isOnline ? 'text-blue-600' : 'text-red-600'}`}>
-                      <span className={`w-2 h-2 rounded-full ${u.isOnline ? 'bg-blue-600' : 'bg-red-600'}`}></span>
-                      {u.isOnline ? 'متصل' : 'أوفلاين'}
-                    </span>
-                  </td>
-                  <td className="p-3 flex justify-center gap-2">
-                    <button className="text-blue-500 hover:bg-blue-50 p-1 rounded"><AlertCircle size={18}/></button>
-                    <button onClick={() => remove(ref(db, `users/${u.id}`))} className="text-red-500 hover:bg-red-50 p-1 rounded"><remove size={18}/></button>
-                  </td>
+          <div className="bg-white p-0 rounded-[2.5rem] shadow-sm border border-rose-100 overflow-hidden">
+            <table className="w-full text-right">
+              <thead className="bg-slate-50 text-gray-500 text-xs uppercase tracking-widest font-bold">
+                <tr>
+                  <th className="p-6">الموظف</th>
+                  <th className="p-6">الوظيفة</th>
+                  <th className="p-6">إجراءات</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {users.map(u => (
+                  <tr key={u.id} className="hover:bg-rose-50/30 transition-colors">
+                    <td className="p-6">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${u.isOnline ? 'bg-blue-500 animate-pulse' : 'bg-rose-200'}`}></div>
+                        <div>
+                          <p className="font-bold text-gray-800">{u.employeeName}</p>
+                          <p className="text-xs text-gray-400">@{u.username}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-6 text-sm font-medium">{u.role === 'admin' ? 'مدير نظام' : 'مندوب'}</td>
+                    <td className="p-6">
+                      <div className="flex gap-2">
+                        <button onClick={() => setMessageTarget(u.id)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100" title="إرسال رسالة"><Send size={18}/></button>
+                        <button onClick={() => setEditingPermissions(u.id)} className="p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-100" title="الصلاحيات"><Shield size={18}/></button>
+                        <button className="p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100"><Edit size={18}/></button>
+                        <button onClick={() => remove(ref(db, `users/${u.id}`))} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100"><Trash2 size={18}/></button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+
+      {(activeSubTab === 'markets' || activeSubTab === 'companies') && (
+        <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-rose-100">
+          <h3 className="text-xl font-black text-rose-900 mb-6">إدارة {activeSubTab === 'markets' ? 'الماركتات' : 'الشركات المنافسة'}</h3>
+          <div className="flex gap-2 mb-8">
+            <input 
+              className="flex-1 bg-slate-50 p-4 rounded-2xl outline-none font-bold" 
+              placeholder={`اسم ال${activeSubTab === 'markets' ? 'ماركت' : 'شركة'}`} 
+              value={newItemName}
+              onChange={e => setNewItemName(e.target.value)}
+            />
+            <button onClick={() => addItem(activeSubTab as any)} className="bg-rose-800 text-white px-8 rounded-2xl font-bold">إضافة</button>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+            {(activeSubTab === 'markets' ? markets : companies).map(item => (
+              <div key={item.id} className="p-4 bg-slate-50 rounded-2xl flex items-center justify-between group">
+                <span className="font-bold text-gray-700">{item.name}</span>
+                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button className="p-2 text-blue-600 hover:bg-blue-100 rounded-lg"><Edit size={16}/></button>
+                  <button onClick={() => remove(ref(db, `${activeSubTab}/${item.id}`))} className="p-2 text-red-600 hover:bg-red-100 rounded-lg"><Trash2 size={16}/></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Permissions Modal */}
+      {editingPermissions && (
+        <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2rem] p-8 max-w-md w-full">
+            <h4 className="text-lg font-black mb-6 border-b pb-4 text-rose-900">إدارة صلاحيات الموظف</h4>
+            <div className="space-y-4">
+              {users.find(u => u.id === editingPermissions)?.permissions && Object.entries(users.find(u => u.id === editingPermissions)!.permissions).map(([key, val]: any) => (
+                <label key={key} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-slate-100 transition">
+                  <span className="text-sm font-bold text-gray-600">
+                    {key === 'viewColleaguesSales' ? 'رؤية مبيعات الزملاء' : 
+                     key === 'viewSalesHistory' ? 'رؤية سجل المبيعات' :
+                     key === 'registerInventory' ? 'تسجيل المخزون' :
+                     key === 'viewInventoryHistory' ? 'رؤية سجل المخزون' :
+                     key === 'viewCompetitorReports' ? 'رؤية تقارير المنافسين' : 'رؤية أسعار المنافسين'}
+                  </span>
+                  <input 
+                    type="checkbox" 
+                    className="w-5 h-5 accent-rose-600" 
+                    checked={val} 
+                    onChange={() => togglePerm(editingPermissions, key, val)}
+                  />
+                </label>
+              ))}
+            </div>
+            <button onClick={() => setEditingPermissions(null)} className="w-full mt-8 bg-rose-800 text-white py-4 rounded-2xl font-black">حفظ وإغلاق</button>
+          </div>
+        </div>
+      )}
+
+      {/* Message Modal */}
+      {messageTarget && (
+        <div className="fixed inset-0 bg-black/50 z-[110] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2rem] p-8 max-w-md w-full">
+            <h4 className="text-lg font-black mb-6 text-rose-900">إرسال رسالة إدارية</h4>
+            <textarea 
+              className="w-full bg-slate-50 p-4 rounded-2xl outline-none h-40 border-2 border-transparent focus:border-rose-200"
+              placeholder="اكتب نص الرسالة هنا..."
+              value={messageText}
+              onChange={e => setMessageText(e.target.value)}
+            ></textarea>
+            <div className="flex gap-3 mt-6">
+              <button onClick={sendNotification} className="flex-1 bg-rose-800 text-white py-4 rounded-2xl font-black">إرسال الآن</button>
+              <button onClick={() => setMessageTarget(null)} className="flex-1 bg-gray-100 text-gray-600 py-4 rounded-2xl font-black">إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

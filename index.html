@@ -6,23 +6,51 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Soft Rose Modern Trade</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <style>
       body {
         font-family: 'Cairo', sans-serif;
-        background-color: #f8fafc;
+        transition: background-color 0.3s ease, color 0.3s ease;
       }
       .ticker-container {
         overflow: hidden;
         white-space: nowrap;
+        position: relative;
       }
       .ticker-text {
         display: inline-block;
-        animation: ticker 20s linear infinite;
+        padding-right: 100%;
+        animation: ticker linear infinite;
       }
       @keyframes ticker {
         0% { transform: translateX(100%); }
         100% { transform: translateX(-100%); }
+      }
+      
+      /* Glass Style */
+      .theme-glass {
+        background: linear-gradient(135deg, #fce7f3 0%, #fbcfe8 100%);
+        background-attachment: fixed;
+      }
+      .glass-card {
+        background: rgba(255, 255, 255, 0.4);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+      }
+      
+      /* Dark Style */
+      .theme-dark {
+        background-color: #121212 !important;
+        color: #ffffff !important;
+      }
+      .theme-dark .bg-white {
+        background-color: #1e1e1e !important;
+        color: #ffffff !important;
+        border-color: #333 !important;
+      }
+      .theme-dark .text-gray-800, .theme-dark .text-rose-800 {
+        color: #fce7f3 !important;
       }
     </style>
   <script type="importmap">
