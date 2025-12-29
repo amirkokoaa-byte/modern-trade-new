@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, DailySale, SaleItem } from '../types';
-import { Search, Trash2, Edit, Trophy, BarChart3, FileSpreadsheet, ListFilter, X, Clock, Calendar as CalendarIcon, User as UserIcon, Store } from 'lucide-react';
+import { Search, Trash2, Edit, Trophy, BarChart3, FileSpreadsheet, ListFilter, X, Clock, Calendar as CalendarIcon, User as UserIcon, Store, History } from 'lucide-react';
 import { db, ref, onValue, remove, update } from '../firebase';
 import * as XLSX from 'xlsx';
 
@@ -212,7 +212,7 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
         )}
       </div>
 
-      {/* Edit Modal (Keeping functionality from previous update) */}
+      {/* Edit Modal */}
       {selectedSale && isEditing && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in-95">
