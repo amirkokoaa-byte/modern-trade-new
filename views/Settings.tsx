@@ -191,7 +191,7 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
                 ...newUser, 
                 id, 
                 isOnline: false, 
-                vacationBalance: { annual: 21, casual: 7, sick: 0, exams: 0 },
+                vacationBalance: { annual: 14, casual: 7, sick: 0, exams: 0, absent_with_permission: 0, absent_without_permission: 0 },
                 permissions: { viewSalesHistory: true, registerInventory: true, viewInventoryHistory: true, viewColleaguesSales: false } 
               });
               setNewUser({ username: '', password: '', employeeName: '', employeeCode: '', role: 'coordinator' });

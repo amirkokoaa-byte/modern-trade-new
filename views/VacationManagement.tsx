@@ -13,6 +13,7 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
   const [vacations, setVacations] = useState<Vacation[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDetails, setSelectedDetails] = useState<{ userId: string, type: string, userName: string } | null>(null);
+  const [editingUserBalance, setEditingUserBalance] = useState<User | null>(null);
   const [currentPeriodDate, setCurrentPeriodDate] = useState(new Date());
   
   const [newVacation, setNewVacation] = useState({
@@ -37,21 +38,58 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
   const handleAddVacation = async () => {
     const vRef = ref(db, 'vacations');
     const targetUser = users.find(u => u.id === newVacation.targetUserId) || user;
+    
+    // Deduction logic for Annual/Casual/AbsentWithPermission
+    const currentBalance = targetUser.vacationBalance || { annual: 14, casual: 7, sick: 0, exams: 0 };
+    let updatedBalance = { ...currentBalance };
+    
+    if (newVacation.type === 'annual') updatedBalance.annual -= newVacation.days;
+    else if (newVacation.type === 'casual') updatedBalance.casual -= newVacation.days;
+    else if (newVacation.type === 'absent_with_permission') updatedBalance.absent_with_permission = (updatedBalance.absent_with_permission || 0) - newVacation.days;
+
+    // Save deduction to user object
+    await update(ref(db, `users/${targetUser.id}`), { vacationBalance: updatedBalance });
+
+    // Push vacation record
     await push(vRef, {
       ...newVacation,
       userId: targetUser.id,
       userName: targetUser.employeeName,
       createdAt: new Date().toISOString()
     });
+    
     setIsModalOpen(false);
-    alert("تم تسجيل الإجازة بنجاح");
+    alert("تم تسجيل الإجازة وخصمها من الرصيد بنجاح");
   };
 
-  const handleDeleteVacation = (id: string) => {
-    if (window.confirm("⚠️ هل أنت متأكد من حذف هذا السجل؟")) {
-      remove(ref(db, `vacations/${id}`));
-      alert("تم الحذف بنجاح");
+  const handleDeleteVacation = async (id: string) => {
+    if (window.confirm("⚠️ هل أنت متأكد من حذف هذا السجل؟ سيتم إعادة الأيام للرصيد.")) {
+      const vToDelete = vacations.find(v => v.id === id);
+      if (vToDelete) {
+        const targetUser = users.find(u => u.id === vToDelete.userId);
+        if (targetUser) {
+          const currentBalance = targetUser.vacationBalance || { annual: 14, casual: 7 };
+          let updatedBalance = { ...currentBalance };
+          
+          if (vToDelete.type === 'annual') updatedBalance.annual += Number(vToDelete.days);
+          else if (vToDelete.type === 'casual') updatedBalance.casual += Number(vToDelete.days);
+          else if (vToDelete.type === 'absent_with_permission') updatedBalance.absent_with_permission = (updatedBalance.absent_with_permission || 0) + Number(vToDelete.days);
+
+          await update(ref(db, `users/${targetUser.id}`), { vacationBalance: updatedBalance });
+        }
+      }
+      await remove(ref(db, `vacations/${id}`));
+      alert("تم الحذف وإرجاع الرصيد بنجاح");
     }
+  };
+
+  const handleSaveBalanceEdit = async () => {
+    if (!editingUserBalance) return;
+    await update(ref(db, `users/${editingUserBalance.id}`), {
+      vacationBalance: editingUserBalance.vacationBalance
+    });
+    alert("تم تحديث الرصيد بنجاح");
+    setEditingUserBalance(null);
   };
 
   // Helper to get financial month period (21 to 20)
@@ -71,12 +109,6 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
     if (direction === 'prev') newDate.setMonth(newDate.getMonth() - 1);
     else newDate.setMonth(newDate.getMonth() + 1);
     setCurrentPeriodDate(newDate);
-  };
-
-  const getUserVacationCount = (userId: string, type: string) => {
-    return vacations
-      .filter(v => v.userId === userId && v.type === type)
-      .reduce((acc, curr) => acc + Number(curr.days), 0);
   };
 
   const visibleUsers = user.role === 'admin' ? users : users.filter(u => u.id === user.id);
@@ -100,7 +132,7 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
         {/* User Vacation Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {visibleUsers.map(u => (
-            <div key={u.id} className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 group hover:border-rose-200 transition-all">
+            <div key={u.id} className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 group hover:border-rose-200 transition-all relative">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-rose-900 shadow-sm"><UserIcon size={24}/></div>
@@ -109,15 +141,21 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
                     <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{u.employeeCode || 'بدون كود'}</p>
                   </div>
                 </div>
+                {user.role === 'admin' && (
+                  <div className="flex gap-1">
+                    <button onClick={() => setEditingUserBalance(u)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all"><Edit size={14}/></button>
+                    <button onClick={() => { if(window.confirm("حذف الموظف نهائياً؟")) remove(ref(db, `users/${u.id}`)); }} className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-600 hover:text-white transition-all"><Trash2 size={14}/></button>
+                  </div>
+                )}
               </div>
 
-              {/* 4 Mini Squares */}
+              {/* 4 Mini Squares showing CURRENT BALANCE */}
               <div className="grid grid-cols-4 gap-2">
                 {[
-                  { label: 'سنوي', type: 'annual', bg: 'bg-blue-600', light: 'bg-blue-50', text: 'text-blue-600' },
-                  { label: 'عارضة', type: 'casual', bg: 'bg-orange-500', light: 'bg-orange-50', text: 'text-orange-500' },
-                  { label: 'مرضي', type: 'sick', bg: 'bg-red-500', light: 'bg-red-50', text: 'text-red-500' },
-                  { label: 'بدون إذن', type: 'absent_without_permission', bg: 'bg-purple-600', light: 'bg-purple-50', text: 'text-purple-600' }
+                  { label: 'سنوي', type: 'annual', balance: u.vacationBalance?.annual ?? 14, text: 'text-blue-600', light: 'bg-blue-50' },
+                  { label: 'عارضة', type: 'casual', balance: u.vacationBalance?.casual ?? 7, text: 'text-orange-500', light: 'bg-orange-50' },
+                  { label: 'مرضي', type: 'sick', balance: u.vacationBalance?.sick ?? 0, text: 'text-red-500', light: 'bg-red-50' },
+                  { label: 'بدون إذن', type: 'absent_without_permission', balance: u.vacationBalance?.absent_without_permission ?? 0, text: 'text-purple-600', light: 'bg-purple-50' }
                 ].map(box => (
                   <button 
                     key={box.type}
@@ -125,7 +163,7 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
                     className={`${box.light} p-3 rounded-2xl flex flex-col items-center justify-center hover:scale-105 transition-all shadow-sm border border-transparent hover:border-rose-200`}
                   >
                     <span className={`text-[8px] font-black uppercase ${box.text} mb-1`}>{box.label}</span>
-                    <span className={`text-xl font-black ${box.text}`}>{getUserVacationCount(u.id, box.type)}</span>
+                    <span className={`text-xl font-black ${box.text}`}>{box.balance}</span>
                   </button>
                 ))}
               </div>
@@ -133,6 +171,53 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
           ))}
         </div>
       </div>
+
+      {/* Edit Balance Modal (Admin Only) */}
+      {editingUserBalance && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95">
+            <h3 className="text-xl font-black text-rose-900 mb-6">تعديل رصيد أيام {editingUserBalance.employeeName}</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mr-1">سنوي</label>
+                <input 
+                  type="number" className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200"
+                  value={editingUserBalance.vacationBalance?.annual}
+                  onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...editingUserBalance.vacationBalance, annual: Number(e.target.value)}})}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mr-1">عارضة</label>
+                <input 
+                  type="number" className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200"
+                  value={editingUserBalance.vacationBalance?.casual}
+                  onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...editingUserBalance.vacationBalance, casual: Number(e.target.value)}})}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mr-1">مرضي</label>
+                <input 
+                  type="number" className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200"
+                  value={editingUserBalance.vacationBalance?.sick}
+                  onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...editingUserBalance.vacationBalance, sick: Number(e.target.value)}})}
+                />
+              </div>
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mr-1">بدون إذن</label>
+                <input 
+                  type="number" className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200"
+                  value={editingUserBalance.vacationBalance?.absent_without_permission}
+                  onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...editingUserBalance.vacationBalance, absent_without_permission: Number(e.target.value)}})}
+                />
+              </div>
+            </div>
+            <div className="flex gap-4 mt-8">
+              <button onClick={handleSaveBalanceEdit} className="flex-1 bg-rose-800 text-white py-4 rounded-xl font-black shadow-lg">حفظ التعديلات</button>
+              <button onClick={() => setEditingUserBalance(null)} className="flex-1 bg-slate-100 text-slate-500 py-4 rounded-xl font-black">إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Details Modal (Calendar/Period View) */}
       {selectedDetails && (
