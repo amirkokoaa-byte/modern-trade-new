@@ -5,7 +5,7 @@ import { db, ref, update, set, push, remove } from '../firebase';
 import { 
   Save, UserPlus, Shield, MessageCircle, AlertCircle, 
   Store, Building2, UserCog, Send, Trash2, Edit,
-  Settings as SettingsIcon, Key, UserCheck, X, Mail, Hash, User as UserIcon
+  Settings as SettingsIcon, Key, UserCheck, X, Mail, Hash, User as UserIcon, Trophy
 } from 'lucide-react';
 
 interface Props {
@@ -21,6 +21,7 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
   const [newTickerText, setNewTickerText] = useState(settings?.tickerText || '');
   const [newProgramName, setNewProgramName] = useState(settings?.programName || '');
   const [whatsapp, setWhatsapp] = useState(settings?.whatsappNumber || '');
+  const [showTopSalesInTicker, setShowTopSalesInTicker] = useState(settings?.showTopSalesInTicker || false);
   
   const [newUser, setNewUser] = useState({ 
     username: '', 
@@ -43,7 +44,8 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
     await update(ref(db, 'settings'), {
       tickerText: newTickerText,
       programName: newProgramName,
-      whatsappNumber: whatsapp
+      whatsappNumber: whatsapp,
+      showTopSalesInTicker: showTopSalesInTicker
     });
     alert("تم حفظ الإعدادات بنجاح");
   };
@@ -109,6 +111,18 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
     return roles[role] || role;
   };
 
+  const permissionLabels: Record<string, string> = {
+    registerSales: 'المبيعات اليومية',
+    viewSalesHistory: 'سجل المبيعات',
+    registerInventory: 'تسجيل المخزون',
+    viewInventoryHistory: 'سجل المخزون',
+    registerCompetitorPrices: 'أسعار المنافسين',
+    viewCompetitorReports: 'تقارير المنافسين',
+    viewVacationMgmt: 'رصيد الإجازات',
+    viewSettings: 'إعدادات النظام',
+    viewColleaguesSales: 'رؤية مبيعات الزملاء'
+  };
+
   return (
     <div className="space-y-8 pb-20 px-2 md:px-0">
       {/* Navigation Pills */}
@@ -141,9 +155,26 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2">رقم الواتساب</label>
               <input className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200" value={whatsapp} onChange={e => setWhatsapp(e.target.value)}/>
             </div>
-            <div className="md:col-span-2 space-y-2">
-              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2">نص شريط الأخبار</label>
-              <textarea className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200 h-32 resize-none" value={newTickerText} onChange={e => setNewTickerText(e.target.value)}/>
+            
+            <div className="md:col-span-2 space-y-4 pt-4 border-t">
+              <div className="flex items-center justify-between p-4 bg-rose-50 rounded-2xl border border-rose-100">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-rose-800 text-white rounded-xl"><Trophy size={18}/></div>
+                  <div>
+                    <p className="text-sm font-black text-rose-900">عرض نجم الشهر في الشريط</p>
+                    <p className="text-[9px] font-bold text-rose-400">سيتم حساب أعلى مبيعات للموظفين وعرض الاسم والمبلغ تلقائياً</p>
+                  </div>
+                </div>
+                <label className="relative inline-flex items-center cursor-pointer">
+                  <input type="checkbox" checked={showTopSalesInTicker} onChange={e => setShowTopSalesInTicker(e.target.checked)} className="sr-only peer" />
+                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-800"></div>
+                </label>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2">نص شريط الأخبار الإضافي</label>
+                <textarea className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200 h-24 resize-none" value={newTickerText} onChange={e => setNewTickerText(e.target.value)} placeholder="اكتب أي رسالة تود ظهورها في الشريط..."/>
+              </div>
             </div>
           </div>
           <button onClick={handleSaveGeneral} className="w-full md:w-auto bg-rose-800 text-white px-10 py-4 rounded-xl font-black flex items-center justify-center gap-2">
@@ -192,7 +223,17 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
                 id, 
                 isOnline: false, 
                 vacationBalance: { annual: 14, casual: 7, sick: 0, exams: 0, absent_with_permission: 0, absent_without_permission: 0 },
-                permissions: { viewSalesHistory: true, registerInventory: true, viewInventoryHistory: true, viewColleaguesSales: false } 
+                permissions: { 
+                  registerSales: true,
+                  viewSalesHistory: true, 
+                  registerInventory: true, 
+                  viewInventoryHistory: true, 
+                  registerCompetitorPrices: true,
+                  viewCompetitorReports: true,
+                  viewVacationMgmt: true,
+                  viewSettings: false,
+                  viewColleaguesSales: false 
+                } 
               });
               setNewUser({ username: '', password: '', employeeName: '', employeeCode: '', role: 'coordinator' });
               alert("تمت إضافة الموظف بنجاح");
@@ -348,26 +389,26 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
               <h4 className="text-xl font-black text-rose-900">تعديل الصلاحيات</h4>
               <button onClick={() => setEditingPermissions(null)}><X size={24} className="text-gray-400"/></button>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-2 custom-scrollbar">
               {(() => {
                 const target = users.find(u => u.id === editingPermissions);
                 if (!target || !target.permissions) return <p className="text-center text-gray-400 py-4 font-bold">لا توجد صلاحيات لعرضها</p>;
-                return Object.entries(target.permissions).map(([key, val]: any) => (
-                  <label key={key} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-rose-50 transition-all">
-                    <span className="text-xs font-bold text-gray-700">
-                      {key === 'viewColleaguesSales' ? 'رؤية مبيعات الزملاء' : 
-                       key === 'viewSalesHistory' ? 'رؤية سجل المبيعات' :
-                       key === 'registerInventory' ? 'تسجيل المخزون' :
-                       key === 'viewInventoryHistory' ? 'رؤية سجل المخزون' : 'صلاحية إضافية'}
-                    </span>
-                    <input 
-                      type="checkbox" 
-                      className="w-5 h-5 rounded-md accent-rose-600" 
-                      checked={val} 
-                      onChange={() => update(ref(db, `users/${editingPermissions}/permissions`), { [key]: !val })}
-                    />
-                  </label>
-                ));
+                return Object.entries(permissionLabels).map(([key, label]) => {
+                  const val = (target.permissions as any)[key] ?? false;
+                  return (
+                    <label key={key} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl cursor-pointer hover:bg-rose-50 transition-all border border-slate-100">
+                      <span className="text-xs font-bold text-gray-700">
+                        {label}
+                      </span>
+                      <input 
+                        type="checkbox" 
+                        className="w-5 h-5 rounded-md accent-rose-600" 
+                        checked={val} 
+                        onChange={() => update(ref(db, `users/${editingPermissions}/permissions`), { [key]: !val })}
+                      />
+                    </label>
+                  );
+                });
               })()}
             </div>
           </div>

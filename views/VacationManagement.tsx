@@ -37,7 +37,9 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
 
   const handleAddVacation = async () => {
     const vRef = ref(db, 'vacations');
-    const targetUser = users.find(u => u.id === newVacation.targetUserId) || user;
+    // For non-admins, ensure they only register for themselves
+    const targetUserId = user.role === 'admin' ? newVacation.targetUserId : user.id;
+    const targetUser = users.find(u => u.id === targetUserId) || user;
     
     // Deduction logic for Annual/Casual/AbsentWithPermission
     const currentBalance = targetUser.vacationBalance || { annual: 14, casual: 7, sick: 0, exams: 0 };
@@ -111,7 +113,11 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
     setCurrentPeriodDate(newDate);
   };
 
-  const visibleUsers = user.role === 'admin' ? users : users.filter(u => u.id === user.id);
+  // Visibility Logic: Normal users only see their own card
+  const visibleUsers = useMemo(() => {
+    if (user.role === 'admin') return users;
+    return users.filter(u => u.id === user.id);
+  }, [user, users]);
 
   return (
     <div className="space-y-6 pb-20" dir="rtl">
@@ -122,7 +128,10 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
             <h2 className="text-2xl font-black text-rose-900 leading-none">إدارة رصيد الإجازات</h2>
           </div>
           <button 
-            onClick={() => setIsModalOpen(true)}
+            onClick={() => {
+              setNewVacation(prev => ({ ...prev, targetUserId: user.id }));
+              setIsModalOpen(true);
+            }}
             className="bg-rose-800 text-white px-6 py-3 rounded-xl flex items-center gap-2 hover:bg-rose-900 shadow-lg shadow-rose-100 font-black text-sm transition-all"
           >
             <Plus size={20}/> تسجيل جديد
@@ -144,7 +153,6 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
                 {user.role === 'admin' && (
                   <div className="flex gap-1">
                     <button onClick={() => setEditingUserBalance(u)} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all"><Edit size={14}/></button>
-                    <button onClick={() => { if(window.confirm("حذف الموظف نهائياً؟")) remove(ref(db, `users/${u.id}`)); }} className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-600 hover:text-white transition-all"><Trash2 size={14}/></button>
                   </div>
                 )}
               </div>
@@ -296,18 +304,21 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
           <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95">
             <h3 className="text-2xl font-black text-rose-900 mb-8">تسجيل إجازة / غياب</h3>
             <div className="space-y-4">
-              {user.role === 'admin' && (
-                <div>
-                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mr-1">الموظف</label>
-                  <select 
-                    className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200"
-                    value={newVacation.targetUserId}
-                    onChange={(e) => setNewVacation({...newVacation, targetUserId: e.target.value})}
-                  >
-                    {users.map(u => <option key={u.id} value={u.id}>{u.employeeName}</option>)}
-                  </select>
-                </div>
-              )}
+              <div>
+                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mr-1">الموظف</label>
+                <select 
+                  className={`w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200 ${user.role !== 'admin' ? 'opacity-60 pointer-events-none' : ''}`}
+                  value={user.role === 'admin' ? newVacation.targetUserId : user.id}
+                  onChange={(e) => setNewVacation({...newVacation, targetUserId: e.target.value})}
+                >
+                  {user.role === 'admin' ? (
+                    users.map(u => <option key={u.id} value={u.id}>{u.employeeName}</option>)
+                  ) : (
+                    <option value={user.id}>{user.employeeName}</option>
+                  )}
+                </select>
+                {user.role !== 'admin' && <p className="text-[8px] font-bold text-gray-400 mt-1 mr-1">* يمكنك التسجيل لنفسك فقط</p>}
+              </div>
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mr-1">التاريخ</label>
                 <input 

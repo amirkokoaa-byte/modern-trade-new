@@ -1,13 +1,13 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Users, ShoppingCart, History, Package, ClipboardList, 
   TrendingUp, BarChart, Settings as SettingsIcon, 
   LogOut, Menu, X, Bell, MessageCircle, Calendar,
-  Loader2, Wifi, WifiOff, Palette, Copy, Trash2, User as UserIcon
+  Loader2, Wifi, WifiOff, Palette, Copy, Trash2, User as UserIcon, Trophy
 } from 'lucide-react';
 import { db, ref, onValue, set, update, push, remove } from './firebase';
-import { User, AppSettings, Notification, AppTheme, Market, Company } from './types';
+import { User, AppSettings, Notification, AppTheme, Market, Company, DailySale } from './types';
 
 // View Components
 import DailySales from './views/DailySales';
@@ -26,6 +26,7 @@ const App: React.FC = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [users, setUsers] = useState<User[]>([]);
+  const [sales, setSales] = useState<DailySale[]>([]);
   const [markets, setMarkets] = useState<Market[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -48,8 +49,31 @@ const App: React.FC = () => {
       if (data) setUsers(Object.values(data));
     });
 
+    onValue(ref(db, 'sales'), (snapshot) => {
+      const data = snapshot.val();
+      if (data) setSales(Object.values(data));
+      else setSales([]);
+    });
+
     setIsLoading(false);
   }, []);
+
+  const starOfMonthInfo = useMemo(() => {
+    const now = new Date();
+    const currentMonthSales = sales.filter(s => {
+      const d = new Date(s.date);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+
+    const userTotals: Record<string, {name: string, total: number}> = {};
+    currentMonthSales.forEach(s => {
+      if (!userTotals[s.userId]) userTotals[s.userId] = { name: s.userName, total: 0 };
+      userTotals[s.userId].total += (s.total || 0);
+    });
+
+    const sorted = Object.values(userTotals).sort((a, b) => b.total - a.total);
+    return sorted[0] || null;
+  }, [sales]);
 
   useEffect(() => {
     if (user) {
@@ -130,14 +154,14 @@ const App: React.FC = () => {
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
   const sidebarItems = [
-    { id: 'daily-sales', label: 'المبيعات اليومية', icon: <ShoppingCart size={20}/>, visible: true },
+    { id: 'daily-sales', label: 'المبيعات اليومية', icon: <ShoppingCart size={20}/>, visible: user.role === 'admin' || user.permissions?.registerSales },
     { id: 'sales-history', label: 'سجل المبيعات', icon: <History size={20}/>, visible: user.role === 'admin' || user.permissions?.viewSalesHistory },
     { id: 'inventory-reg', label: 'تسجيل المخزون', icon: <Package size={20}/>, visible: user.role === 'admin' || user.permissions?.registerInventory },
     { id: 'inventory-history', label: 'سجل المخزون', icon: <ClipboardList size={20}/>, visible: user.role === 'admin' || user.permissions?.viewInventoryHistory },
-    { id: 'competitor-prices', label: 'أسعار المنافسين', icon: <TrendingUp size={20}/>, visible: user.role === 'admin' || user.permissions?.viewCompetitorPrices },
+    { id: 'competitor-prices', label: 'أسعار المنافسين', icon: <TrendingUp size={20}/>, visible: user.role === 'admin' || user.permissions?.registerCompetitorPrices },
     { id: 'competitor-reports', label: 'تقارير المنافسين', icon: <BarChart size={20}/>, visible: user.role === 'admin' || user.permissions?.viewCompetitorReports },
-    { id: 'vacation-mgmt', label: 'رصيد الاجازات', icon: <Calendar size={20}/>, visible: true },
-    { id: 'settings', label: 'إعدادات النظام', icon: <SettingsIcon size={20}/>, visible: user.role === 'admin' },
+    { id: 'vacation-mgmt', label: 'رصيد الاجازات', icon: <Calendar size={20}/>, visible: user.role === 'admin' || user.permissions?.viewVacationMgmt },
+    { id: 'settings', label: 'إعدادات النظام', icon: <SettingsIcon size={20}/>, visible: user.role === 'admin' || user.permissions?.viewSettings },
   ].filter(i => i.visible);
 
   const getRoleLabel = (role: string) => {
@@ -148,6 +172,14 @@ const App: React.FC = () => {
       default: return 'موظف';
     }
   };
+
+  const constructedTickerText = useMemo(() => {
+    let text = settings?.tickerText || '';
+    if (settings?.showTopSalesInTicker && starOfMonthInfo) {
+      text = `🏆 نجم الشهر الحالي: ${starOfMonthInfo.name} بمبيعات إجمالية ${starOfMonthInfo.total.toLocaleString()} ج.م 🏆 | ` + text;
+    }
+    return text;
+  }, [settings, starOfMonthInfo]);
 
   return (
     <div className={`flex h-screen overflow-hidden theme-${theme} transition-all duration-300 relative`}>
@@ -203,11 +235,11 @@ const App: React.FC = () => {
       <main className={`flex-1 flex flex-col min-w-0 overflow-hidden ${theme === 'dark' ? 'bg-[#0a0a0a]' : 'bg-[#F9FAFB]'}`}>
         
         {/* Ticker Section */}
-        {settings?.tickerText && (
+        {constructedTickerText && (
           <div className="bg-rose-950 py-2 text-white text-[11px] md:text-[13px] overflow-hidden border-b border-rose-900/50 shadow-inner z-50">
             <div className="ticker-container">
               <div className="ticker-text font-bold opacity-90" style={{ animationDuration: '45s' }}>
-                {settings.tickerText} &nbsp;&nbsp; ★ &nbsp;&nbsp; {settings.tickerText}
+                {constructedTickerText} &nbsp;&nbsp; ★ &nbsp;&nbsp; {constructedTickerText}
               </div>
             </div>
           </div>

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, DailySale, SaleItem } from '../types';
-import { Search, Trash2, Edit, Trophy, BarChart3, FileSpreadsheet, ListFilter, X, Clock, Calendar as CalendarIcon, User as UserIcon, Store, History } from 'lucide-react';
+import { Search, Trash2, Edit, Trophy, BarChart3, FileSpreadsheet, ListFilter, X, Clock, Calendar as CalendarIcon, User as UserIcon, Store, History, Package } from 'lucide-react';
 import { db, ref, onValue, remove, update } from '../firebase';
 import * as XLSX from 'xlsx';
 
@@ -40,6 +40,35 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
       }
     });
   }, [user]);
+
+  const stats = useMemo(() => {
+    const now = new Date();
+    const currentMonthSales = sales.filter(s => {
+      const d = new Date(s.date);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+
+    const userTotals: Record<string, {name: string, total: number}> = {};
+    const productTotals: Record<string, {quantity: number, total: number}> = {};
+
+    currentMonthSales.forEach(s => {
+      if (!userTotals[s.userId]) userTotals[s.userId] = { name: s.userName, total: 0 };
+      userTotals[s.userId].total += (s.total || 0);
+
+      s.items.forEach(item => {
+        if (!productTotals[item.productName]) productTotals[item.productName] = { quantity: 0, total: 0 };
+        productTotals[item.productName].quantity += Number(item.quantity);
+        productTotals[item.productName].total += (Number(item.price) * Number(item.quantity));
+      });
+    });
+
+    const star = Object.values(userTotals).sort((a, b) => b.total - a.total)[0] || null;
+    const topProducts = Object.entries(productTotals)
+      .sort((a, b) => b[1].quantity - a[1].quantity)
+      .slice(0, 3);
+
+    return { star, topProducts };
+  }, [sales]);
 
   const handleDelete = (id: string) => {
     if (window.confirm("⚠️ هل أنت متأكد من حذف هذه العملية نهائياً؟ لا يمكن التراجع عن هذا الإجراء.")) {
@@ -89,6 +118,59 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
         }} className="flex items-center justify-center gap-2 bg-green-600 text-white px-6 py-3 rounded-xl font-black text-xs hover:bg-green-700 transition-all">
           <FileSpreadsheet size={18}/> تصدير السجل بالكامل
         </button>
+      </div>
+
+      {/* Star of the Month & Top Items Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {/* Star of the Month */}
+        <div className="bg-gradient-to-br from-rose-800 to-rose-950 p-6 rounded-[2rem] text-white shadow-xl relative overflow-hidden">
+          <Trophy className="absolute -right-4 -bottom-4 w-32 h-32 opacity-10 rotate-12" />
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-4">
+              <Trophy className="text-amber-400" size={24} />
+              <h3 className="font-black text-sm uppercase tracking-widest">نجم شهر {new Date().toLocaleDateString('ar-EG', {month: 'long'})}</h3>
+            </div>
+            {stats.star ? (
+              <div>
+                <p className="text-2xl font-black mb-1">{stats.star.name}</p>
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-black text-amber-400">{stats.star.total.toLocaleString()}</span>
+                  <span className="text-xs font-bold opacity-60">جنية مبيعات محققة</span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm font-bold opacity-50 italic">جاري احتساب البيانات...</p>
+            )}
+            <p className="text-[9px] font-bold opacity-40 mt-4">* يتم التحديث لحظياً من يوم 1 حتى 30 من الشهر</p>
+          </div>
+        </div>
+
+        {/* Top Products */}
+        <div className="bg-white p-6 rounded-[2rem] border border-rose-100 shadow-sm">
+          <div className="flex items-center gap-2 mb-4 text-rose-900">
+            <BarChart3 size={24} />
+            <h3 className="font-black text-sm uppercase tracking-widest">الأصناف الأكثر مبيعاً</h3>
+          </div>
+          <div className="space-y-3">
+            {stats.topProducts.map(([name, data], idx) => (
+              <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-2xl border border-slate-100">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center font-black text-xs">{idx + 1}</div>
+                  <div>
+                    <p className="text-xs font-black text-gray-800 leading-none">{name}</p>
+                    <p className="text-[10px] font-bold text-gray-400 mt-1">{data.quantity} قطعة مباعة</p>
+                  </div>
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-black text-rose-700">{data.total.toLocaleString()} ج.م</p>
+                </div>
+              </div>
+            ))}
+            {stats.topProducts.length === 0 && (
+              <p className="text-center py-6 text-gray-300 font-bold italic text-xs">لا توجد بيانات مبيعات لهذا الشهر</p>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Filter Section */}

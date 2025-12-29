@@ -3,12 +3,15 @@ export type UserRole = 'admin' | 'coordinator' | 'usher';
 export type AppTheme = 'standard' | 'glass' | 'dark' | 'modern';
 
 export interface UserPermissions {
-  viewColleaguesSales: boolean;
+  registerSales: boolean;
   viewSalesHistory: boolean;
   registerInventory: boolean;
   viewInventoryHistory: boolean;
+  registerCompetitorPrices: boolean;
   viewCompetitorReports: boolean;
-  viewCompetitorPrices: boolean;
+  viewVacationMgmt: boolean;
+  viewSettings: boolean;
+  viewColleaguesSales: boolean;
 }
 
 export interface User {
@@ -46,6 +49,7 @@ export interface AppSettings {
   tickerSpeed: number;
   whatsappNumber: string;
   programName: string;
+  showTopSalesInTicker?: boolean;
 }
 
 export interface Market {
