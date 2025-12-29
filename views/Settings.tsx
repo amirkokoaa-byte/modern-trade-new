@@ -17,6 +17,17 @@ interface Props {
 }
 
 const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], companies = [] }) => {
+  // Restriction: Only Admin can see settings data
+  if (user.role !== 'admin') {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 bg-white rounded-[2rem] border border-rose-50 shadow-sm">
+        <Shield size={64} className="text-rose-200 mb-4" />
+        <h3 className="text-xl font-black text-rose-900">عذراً، هذه الصفحة مخصصة للمدير فقط</h3>
+        <p className="text-gray-400 font-bold mt-2">لا تملك الصلاحيات الكافية لعرض أو تعديل إعدادات النظام</p>
+      </div>
+    );
+  }
+
   const [activeSubTab, setActiveSubTab] = useState('general');
   const [newTickerText, setNewTickerText] = useState(settings?.tickerText || '');
   const [newProgramName, setNewProgramName] = useState(settings?.programName || 'Soft Rose Modern Trade');
@@ -35,7 +46,6 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
   const [editingCredentials, setEditingCredentials] = useState<User | null>(null);
   const [editItem, setEditItem] = useState<{id: string, name: string, type: 'markets' | 'companies'} | null>(null);
   
-  // Message Modal State
   const [messageTarget, setMessageTarget] = useState<User | null>(null);
   const [msgText, setMsgText] = useState('');
 
@@ -104,11 +114,7 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
   };
 
   const getRoleLabel = (role: string) => {
-    const roles: Record<string, string> = {
-      admin: 'مدير نظام',
-      coordinator: 'منسق',
-      usher: 'أشر'
-    };
+    const roles: Record<string, string> = { admin: 'مدير نظام', coordinator: 'منسق', usher: 'أشر' };
     return roles[role] || role;
   };
 
@@ -125,8 +131,8 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
   };
 
   return (
-    <div className="space-y-8 pb-20 px-2 md:px-0">
-      <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar">
+    <div className="space-y-8 pb-20">
+      <div className="flex gap-2 overflow-x-auto pb-2 no-scrollbar">
         {[
           { id: 'general', label: 'عام', icon: <SettingsIcon size={18}/> },
           { id: 'users', label: 'الموظفين', icon: <UserCog size={18}/> },
@@ -136,7 +142,7 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
           <button
             key={tab.id}
             onClick={() => setActiveSubTab(tab.id)}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl whitespace-nowrap transition-all font-black text-xs ${activeSubTab === tab.id ? 'bg-rose-800 text-white shadow-lg' : 'bg-white text-gray-500 border border-slate-100'}`}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl whitespace-nowrap transition-all font-black text-xs ${activeSubTab === tab.id ? 'bg-rose-800 text-white shadow-lg shadow-rose-100' : 'bg-white text-gray-500 border border-slate-100'}`}
           >
             {tab.icon} {tab.label}
           </button>
@@ -149,36 +155,34 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2">اسم البرنامج</label>
-              <input className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200 shadow-inner" value={newProgramName} onChange={e => setNewProgramName(e.target.value)}/>
+              <input className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200" value={newProgramName} onChange={e => setNewProgramName(e.target.value)}/>
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2">رقم الواتساب</label>
-              <input className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200 shadow-inner" value={whatsapp} onChange={e => setWhatsapp(e.target.value)}/>
+              <input className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200" value={whatsapp} onChange={e => setWhatsapp(e.target.value)}/>
             </div>
-            
-            <div className="md:col-span-2 space-y-4 pt-4 border-t border-slate-100">
+            <div className="md:col-span-2 space-y-4 pt-4">
               <div className="flex items-center justify-between p-5 bg-rose-50 rounded-[1.5rem] border border-rose-100">
                 <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-rose-800 text-white rounded-xl shadow-lg"><Trophy size={18}/></div>
+                  <Trophy className="text-rose-800" size={24}/>
                   <div>
                     <p className="text-sm font-black text-rose-900">تفعيل نجم الشهر في شريط الأخبار</p>
-                    <p className="text-[9px] font-bold text-rose-400 leading-tight">عند تفعيله، سيظهر اسم أعلى موظف مبيعات تلقائياً لجميع المستخدمين</p>
+                    <p className="text-[10px] font-bold text-rose-400">سيظهر اسم أعلى موظف مبيعات تلقائياً للجميع</p>
                   </div>
                 </div>
                 <label className="relative inline-flex items-center cursor-pointer">
                   <input type="checkbox" checked={showTopSalesInTicker} onChange={e => setShowTopSalesInTicker(e.target.checked)} className="sr-only peer" />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rose-800"></div>
+                  <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-rose-800 after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full"></div>
                 </label>
               </div>
-
               <div className="space-y-2">
-                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2">نص شريط الأخبار الإضافي</label>
-                <textarea className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200 h-24 resize-none shadow-inner" value={newTickerText} onChange={e => setNewTickerText(e.target.value)} placeholder="اكتب رسالة مخصصة تظهر لجميع الموظفين..."/>
+                <label className="text-[10px] font-black text-gray-400 uppercase mr-2">نص شريط الأخبار</label>
+                <textarea className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200 h-24 resize-none" value={newTickerText} onChange={e => setNewTickerText(e.target.value)} />
               </div>
             </div>
           </div>
-          <button onClick={handleSaveGeneral} className="w-full md:w-auto bg-rose-800 text-white px-10 py-4 rounded-xl font-black flex items-center justify-center gap-2 shadow-xl hover:bg-rose-900 transition-all active:scale-95">
-            <Save size={18}/> حفظ كافة التعديلات
+          <button onClick={handleSaveGeneral} className="bg-rose-800 text-white px-10 py-4 rounded-xl font-black flex items-center gap-2 shadow-lg shadow-rose-100">
+            <Save size={18}/> حفظ التعديلات
           </button>
         </div>
       )}
@@ -186,52 +190,45 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
       {activeSubTab === 'users' && (
         <div className="space-y-8 animate-in fade-in">
           <div className="bg-white p-6 md:p-10 rounded-[2rem] border border-rose-50 shadow-sm">
-            <h3 className="text-xl font-black text-rose-900 mb-6 flex items-center gap-3"><UserPlus className="text-rose-800" /> إضافة موظف جديد</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              <input className="bg-slate-50 p-4 rounded-xl font-bold text-sm border-2 border-transparent focus:border-rose-200" placeholder="الاسم الكامل" value={newUser.employeeName} onChange={e => setNewUser({...newUser, employeeName: e.target.value})}/>
-              <input className="bg-slate-50 p-4 rounded-xl font-bold text-sm border-2 border-transparent focus:border-rose-200" placeholder="كود الموظف" value={newUser.employeeCode} onChange={e => setNewUser({...newUser, employeeCode: e.target.value})}/>
-              <select className="bg-slate-50 p-4 rounded-xl font-bold text-sm border-2 border-transparent focus:border-rose-200" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value as any})}>
+            <h3 className="text-xl font-black text-rose-900 mb-6 flex items-center gap-3"><UserPlus className="text-rose-800" /> إضافة موظف</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <input className="bg-slate-50 p-4 rounded-xl font-bold text-sm" placeholder="الاسم" value={newUser.employeeName} onChange={e => setNewUser({...newUser, employeeName: e.target.value})}/>
+              <input className="bg-slate-50 p-4 rounded-xl font-bold text-sm" placeholder="الكود" value={newUser.employeeCode} onChange={e => setNewUser({...newUser, employeeCode: e.target.value})}/>
+              <select className="bg-slate-50 p-4 rounded-xl font-bold text-sm" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value as any})}>
                 <option value="coordinator">منسق</option>
                 <option value="usher">أشر</option>
                 <option value="admin">مدير</option>
               </select>
-              <input className="bg-slate-50 p-4 rounded-xl font-bold text-sm border-2 border-transparent focus:border-rose-200" placeholder="اسم المستخدم" value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})}/>
-              <input className="bg-slate-50 p-4 rounded-xl font-bold text-sm border-2 border-transparent focus:border-rose-200" type="password" placeholder="كلمة المرور" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})}/>
             </div>
             <button onClick={() => {
               if(!newUser.username || !newUser.password) return alert("يرجى ملء البيانات");
               const id = push(ref(db, 'users')).key || '';
-              set(ref(db, `users/${id}`), { ...newUser, id, isOnline: false, vacationBalance: { annual: 14, casual: 7, sick: 0, exams: 0, absent_with_permission: 0, absent_without_permission: 0 }, permissions: { registerSales: true, viewSalesHistory: true, registerInventory: true, viewInventoryHistory: true, registerCompetitorPrices: true, viewCompetitorReports: true, viewVacationMgmt: true, viewSettings: false, viewColleaguesSales: false } });
+              set(ref(db, `users/${id}`), { ...newUser, id, isOnline: false, permissions: { registerSales: true, viewSalesHistory: true, registerInventory: true, viewInventoryHistory: true, registerCompetitorPrices: true, viewCompetitorReports: true, viewVacationMgmt: true, viewSettings: false, viewColleaguesSales: false }, vacationBalance: { annual: 14, casual: 7, sick: 0, exams: 0 } });
               setNewUser({ username: '', password: '', employeeName: '', employeeCode: '', role: 'coordinator' });
-              alert("تمت الإضافة بنجاح");
-            }} className="mt-6 bg-rose-800 text-white px-10 py-4 rounded-xl font-black shadow-lg shadow-rose-100 hover:bg-rose-900 transition-all">إضافة الحساب</button>
+            }} className="mt-6 bg-rose-800 text-white px-10 py-4 rounded-xl font-black">إضافة الحساب</button>
           </div>
 
-          <div className="bg-white rounded-[2rem] border border-rose-50 overflow-hidden shadow-sm">
+          <div className="bg-white rounded-[2rem] border border-rose-50 overflow-hidden">
             <table className="w-full text-right">
-              <thead className="bg-slate-50 text-[10px] font-black text-gray-400 uppercase tracking-widest">
-                <tr><th className="p-6">الموظف</th><th className="p-6">الكود</th><th className="p-6">الوظيفة</th><th className="p-6 text-center">الإجراءات</th></tr>
+              <thead className="bg-slate-50 text-[10px] font-black text-gray-400">
+                <tr><th className="p-6">الموظف</th><th className="p-6">الكود</th><th className="p-6 text-center">الإجراءات</th></tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {users.map(u => (
-                  <tr key={u.id} className="hover:bg-rose-50/20">
+                  <tr key={u.id}>
                     <td className="p-6">
                       <div className="flex items-center gap-3">
-                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black ${u.isOnline ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>{u.employeeName?.charAt(0) || '?'}</div>
-                        <div className="flex flex-col">
-                          <span className="font-bold text-sm">{u.employeeName}</span>
-                          <span className="text-[10px] text-gray-400">@{u.username}</span>
-                        </div>
+                        <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-800 flex items-center justify-center font-black">{u.employeeName?.charAt(0)}</div>
+                        <span className="font-bold text-sm">{u.employeeName}</span>
                       </div>
                     </td>
-                    <td className="p-6 font-bold text-xs">{u.employeeCode || '---'}</td>
-                    <td className="p-6 font-bold text-xs text-rose-500">{getRoleLabel(u.role)}</td>
+                    <td className="p-6 font-bold text-xs">{u.employeeCode}</td>
                     <td className="p-6">
                       <div className="flex gap-2 justify-center">
-                        <button onClick={() => setMessageTarget(u)} className="p-2 bg-amber-50 text-amber-600 rounded-lg"><Mail size={16}/></button>
-                        <button onClick={() => setEditingCredentials(u)} className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Key size={16}/></button>
-                        <button onClick={() => setEditingPermissions(u.id)} className="p-2 bg-rose-50 text-rose-600 rounded-lg"><Shield size={16}/></button>
-                        <button onClick={() => handleDeleteUser(u.id, u.employeeName)} className="p-2 bg-red-50 text-red-500 rounded-lg"><Trash2 size={16}/></button>
+                        <button onClick={() => setMessageTarget(u)} className="p-2 text-amber-600 hover:bg-amber-50 rounded-lg"><Mail size={16}/></button>
+                        <button onClick={() => setEditingCredentials(u)} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"><Key size={16}/></button>
+                        <button onClick={() => setEditingPermissions(u.id)} className="p-2 text-rose-600 hover:bg-rose-50 rounded-lg"><Shield size={16}/></button>
+                        <button onClick={() => handleDeleteUser(u.id, u.employeeName)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={16}/></button>
                       </div>
                     </td>
                   </tr>
@@ -255,13 +252,14 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
                 </div>
               </div>
             ))}
+            {markets.length === 0 && <p className="text-center py-10 text-gray-400 col-span-full font-bold">لا توجد ماركتات مسجلة</p>}
           </div>
         </div>
       )}
 
       {activeSubTab === 'companies' && (
         <div className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm border border-rose-50 animate-in fade-in">
-          <h3 className="text-xl font-black text-rose-900 mb-8 flex items-center gap-3"><Building2 className="text-rose-800" /> إدارة الشركات المنافسة</h3>
+          <h3 className="text-xl font-black text-rose-900 mb-8 flex items-center gap-3"><Building2 className="text-rose-800" /> إدارة الشركات</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {companies.map(c => (
               <div key={c.id} className="p-4 bg-slate-50 rounded-2xl flex items-center justify-between border border-slate-100 group">
@@ -272,21 +270,17 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
                 </div>
               </div>
             ))}
+            {companies.length === 0 && <p className="text-center py-10 text-gray-400 col-span-full font-bold">لا توجد شركات مسجلة</p>}
           </div>
         </div>
       )}
 
       {/* Modals for actions */}
       {messageTarget && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95">
-            <h4 className="text-xl font-black text-rose-900 mb-6">إرسال رسالة إلى {messageTarget.employeeName}</h4>
-            <textarea 
-              className="w-full bg-slate-50 p-4 rounded-xl font-bold outline-none border-2 border-transparent focus:border-rose-200 h-32 resize-none"
-              placeholder="اكتب رسالتك هنا..."
-              value={msgText}
-              onChange={e => setMsgText(e.target.value)}
-            />
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={() => setMessageTarget(null)}>
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+            <h4 className="text-xl font-black text-rose-900 mb-6">مراسلة {messageTarget.employeeName}</h4>
+            <textarea className="w-full bg-slate-50 p-4 rounded-xl font-bold outline-none border-2 border-transparent focus:border-rose-200 h-32 resize-none" placeholder="نص الرسالة..." value={msgText} onChange={e => setMsgText(e.target.value)}/>
             <div className="flex gap-3 mt-8">
               <button onClick={handleSendMessage} className="flex-1 bg-rose-800 text-white py-4 rounded-xl font-black">إرسال</button>
               <button onClick={() => setMessageTarget(null)} className="flex-1 bg-slate-100 text-slate-500 py-4 rounded-xl font-black">إلغاء</button>
@@ -296,23 +290,12 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
       )}
 
       {editingCredentials && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95">
-            <h4 className="text-xl font-black text-rose-900 mb-6 text-center">تحديث بيانات دخول {editingCredentials.employeeName}</h4>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={() => setEditingCredentials(null)}>
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+            <h4 className="text-xl font-black text-rose-900 mb-6 text-center">بيانات دخول {editingCredentials.employeeName}</h4>
             <div className="space-y-4">
-              <input 
-                className="w-full bg-slate-50 p-4 rounded-xl font-bold outline-none border-2 border-transparent focus:border-rose-200" 
-                placeholder="اسم المستخدم الجديد" 
-                value={editingCredentials.username}
-                onChange={e => setEditingCredentials({...editingCredentials, username: e.target.value})}
-              />
-              <input 
-                type="password"
-                className="w-full bg-slate-50 p-4 rounded-xl font-bold outline-none border-2 border-transparent focus:border-rose-200" 
-                placeholder="كلمة المرور الجديدة"
-                value={editingCredentials.password}
-                onChange={e => setEditingCredentials({...editingCredentials, password: e.target.value})}
-              />
+              <input className="w-full bg-slate-50 p-4 rounded-xl font-bold border-2 border-transparent focus:border-rose-200 outline-none" placeholder="اسم المستخدم" value={editingCredentials.username} onChange={e => setEditingCredentials({...editingCredentials, username: e.target.value})}/>
+              <input type="password" className="w-full bg-slate-50 p-4 rounded-xl font-bold border-2 border-transparent focus:border-rose-200 outline-none" placeholder="كلمة المرور" value={editingCredentials.password} onChange={e => setEditingCredentials({...editingCredentials, password: e.target.value})}/>
             </div>
             <div className="flex gap-3 mt-8">
               <button onClick={handleUpdateCredentials} className="flex-1 bg-blue-600 text-white py-4 rounded-xl font-black">تحديث</button>
@@ -323,36 +306,31 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
       )}
 
       {editingPermissions && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] p-8 max-w-lg w-full shadow-2xl animate-in zoom-in-95">
-            <h4 className="text-xl font-black text-rose-900 mb-6 border-b pb-4">تعديل صلاحيات الوصول</h4>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={() => setEditingPermissions(null)}>
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-lg w-full shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
+            <h4 className="text-xl font-black text-rose-900 mb-6 border-b pb-4">صلاحيات الوصول</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {Object.entries(permissionLabels).map(([key, label]) => {
                 const targetUser = users.find(u => u.id === editingPermissions);
                 const isEnabled = targetUser?.permissions?.[key as keyof typeof targetUser.permissions];
                 return (
                   <label key={key} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-rose-50 transition-all">
                     <span className="text-xs font-bold text-gray-700">{label}</span>
-                    <input 
-                      type="checkbox" 
-                      checked={!!isEnabled}
-                      onChange={() => togglePermission(editingPermissions, key)}
-                      className="w-5 h-5 accent-rose-800"
-                    />
+                    <input type="checkbox" checked={!!isEnabled} onChange={() => togglePermission(editingPermissions, key)} className="w-5 h-5 accent-rose-800" />
                   </label>
                 );
               })}
             </div>
-            <button onClick={() => setEditingPermissions(null)} className="w-full mt-8 bg-rose-800 text-white py-4 rounded-xl font-black">إغلاق وحفظ</button>
+            <button onClick={() => setEditingPermissions(null)} className="w-full mt-8 bg-rose-800 text-white py-4 rounded-xl font-black">إغلاق</button>
           </div>
         </div>
       )}
 
       {editItem && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={() => setEditItem(null)}>
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
             <h4 className="text-xl font-black text-rose-900 mb-6">تعديل الاسم</h4>
-            <input className="w-full bg-slate-50 p-4 rounded-xl font-bold outline-none border-2 border-transparent focus:border-rose-200" value={editItem.name} onChange={e => setEditItem({...editItem, name: e.target.value})}/>
+            <input className="w-full bg-slate-50 p-4 rounded-xl font-bold border-2 border-transparent focus:border-rose-200 outline-none" value={editItem.name} onChange={e => setEditItem({...editItem, name: e.target.value})}/>
             <div className="flex gap-3 mt-8">
               <button onClick={handleUpdateItem} className="flex-1 bg-rose-800 text-white py-4 rounded-xl font-black shadow-lg shadow-rose-100">حفظ</button>
               <button onClick={() => setEditItem(null)} className="flex-1 bg-slate-100 text-slate-500 py-4 rounded-xl font-black">إلغاء</button>
