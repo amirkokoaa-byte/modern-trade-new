@@ -27,6 +27,8 @@ export interface User {
     casual: number;
     sick: number;
     exams: number;
+    absent_with_permission?: number;
+    absent_without_permission?: number;
   };
 }
 
@@ -49,13 +51,13 @@ export interface AppSettings {
 export interface Market {
   id: string;
   name: string;
-  creatorId: string; // Added for privacy
+  creatorId: string;
 }
 
 export interface Company {
   id: string;
   name: string;
-  creatorId: string; // Added for privacy
+  creatorId: string;
 }
 
 export interface SaleItem {
@@ -82,7 +84,7 @@ export interface Vacation {
   userName: string;
   date: string;
   days: number;
-  type: 'annual' | 'casual' | 'sick' | 'exams';
+  type: 'annual' | 'casual' | 'sick' | 'exams' | 'absent_with_permission' | 'absent_without_permission';
   createdAt: string;
 }
 
