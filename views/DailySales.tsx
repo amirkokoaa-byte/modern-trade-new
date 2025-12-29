@@ -79,7 +79,7 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
 
     try {
       await push(ref(db, 'sales'), sale);
-      alert("تم حفظ المبيعات بنجاح");
+      alert("تم حفظ المبيعات بنجاح، يمكنك رؤيتها الآن في سجل المبيعات");
       setSelectedMarket('');
       setItems([]);
     } catch (e) {
@@ -111,15 +111,15 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
   return (
     <div className="max-w-5xl mx-auto pb-20">
       <div className="bg-white rounded-[2.5rem] shadow-sm border border-rose-50 p-8 md:p-10">
-        {/* Invoice Total Header */}
+        {/* Total Sales Header */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-10 bg-rose-50 p-8 rounded-[2.5rem] border border-rose-100 shadow-sm">
           <div className="flex items-center gap-4">
             <div className="p-4 bg-rose-800 text-white rounded-3xl">
               <ShoppingBag size={32} />
             </div>
             <div>
-              <h2 className="text-xl font-black text-rose-900 leading-none">إجمالي الفاتورة</h2>
-              <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mt-1">Order Summary Total</p>
+              <h2 className="text-xl font-black text-rose-900 leading-none">إجمالي المبيعات اليومية</h2>
+              <p className="text-[10px] font-bold text-rose-400 uppercase tracking-widest mt-1">Daily Sales Total Value</p>
             </div>
           </div>
           <div className="text-5xl font-black text-rose-900">
@@ -157,7 +157,6 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
                 </div>
                 
                 <div className="space-y-3">
-                  {/* Table Headers */}
                   <div className="hidden md:grid grid-cols-[1fr,120px,120px,120px] gap-4 px-6 text-[10px] font-black text-gray-400 uppercase tracking-widest">
                     <span>عنوان الصنف</span>
                     <span className="text-center">سعر القطعة</span>
@@ -169,9 +168,9 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
                     <div key={item.id} className="p-4 bg-white border border-slate-100 rounded-3xl hover:border-rose-200 hover:shadow-md transition-all">
                       <div className="grid grid-cols-1 md:grid-cols-[1fr,120px,120px,120px] gap-4 items-center">
                         <div>
-                          {item.productName === '' ? (
+                          {item.id.includes('manual') ? (
                             <input 
-                              placeholder="أدخل اسم الصنف هنا..."
+                              placeholder="أدخل اسم الصنف الجديد..."
                               className="w-full bg-slate-50 border-2 border-transparent focus:border-rose-200 rounded-xl p-3 font-bold text-gray-800"
                               value={item.productName}
                               onChange={(e) => updateItem(item.id, 'productName', e.target.value)}
@@ -210,7 +209,7 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
                     onClick={() => addItemManual(cat)}
                     className="w-full py-4 border-2 border-dashed border-slate-200 rounded-3xl text-slate-400 font-black text-sm flex items-center justify-center gap-2 hover:bg-slate-50 hover:border-rose-200 hover:text-rose-600 transition-all"
                   >
-                    <PlusCircle size={20}/> إضافة صنف جديد لهذا القسم
+                    <PlusCircle size={20}/> إضافة منتج جديد لهذا القسم
                   </button>
                 </div>
               </div>
@@ -220,7 +219,7 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
               onClick={handleSave}
               className="w-full bg-rose-800 text-white py-6 rounded-[2rem] font-black text-lg flex items-center justify-center gap-3 hover:bg-rose-900 hover:scale-[1.02] transition-all shadow-2xl shadow-rose-200 mt-12"
             >
-              <Save size={24}/> ترحيل وحفظ الفاتورة النهائية
+              <Save size={24}/> ترحيل وحفظ المبيعات النهائية
             </button>
           </div>
         )}
@@ -235,7 +234,6 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
         )}
       </div>
 
-      {/* Add Market Modal */}
       {isAddMarketModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] p-10 max-w-md w-full shadow-2xl animate-in zoom-in-95">

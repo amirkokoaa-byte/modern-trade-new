@@ -135,6 +135,15 @@ const App: React.FC = () => {
     { id: 'settings', label: 'إعدادات النظام', icon: <SettingsIcon size={20}/>, visible: user.role === 'admin' },
   ].filter(i => i.visible);
 
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'admin': return 'مدير';
+      case 'coordinator': return 'منسق';
+      case 'usher': return 'أشر';
+      default: return 'موظف';
+    }
+  };
+
   return (
     <div className={`flex h-screen overflow-hidden theme-${theme} transition-all duration-300 relative`}>
       {isSidebarOpen && (
@@ -175,7 +184,7 @@ const App: React.FC = () => {
                       <div className="relative">
                         <div className={`w-2.5 h-2.5 rounded-full ${u.isOnline ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'bg-rose-800'}`}></div>
                       </div>
-                      <span className={`text-xs font-bold ${u.isOnline ? 'text-white' : 'text-rose-400/60'}`}>{u.employeeName}</span>
+                      <span className={`text-xs font-bold ${u.isOnline ? 'text-white' : 'text-rose-400/60'}`}>{u.employeeName} ({getRoleLabel(u.role)})</span>
                     </div>
                   ))}
                 </div>
@@ -212,7 +221,7 @@ const App: React.FC = () => {
               <div className="flex items-center gap-2 mt-0.5">
                 <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                  {user.employeeName} <span className="opacity-30">|</span> {user.role === 'admin' ? 'Manager' : 'Staff'}
+                  {user.employeeName} <span className="opacity-30">|</span> {getRoleLabel(user.role)}
                 </span>
               </div>
             </div>

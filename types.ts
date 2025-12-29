@@ -1,5 +1,5 @@
 
-export type UserRole = 'admin' | 'user';
+export type UserRole = 'admin' | 'coordinator' | 'usher';
 export type AppTheme = 'standard' | 'glass' | 'dark' | 'modern';
 
 export interface UserPermissions {

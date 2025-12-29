@@ -1,11 +1,11 @@
 
 import React, { useState } from 'react';
-import { User, AppSettings, Market, Company, Notification } from '../types';
+import { User, AppSettings, Market, Company, Notification, UserRole } from '../types';
 import { db, ref, update, set, push, remove } from '../firebase';
 import { 
   Save, UserPlus, Shield, MessageCircle, AlertCircle, 
   Store, Building2, UserCog, Send, Trash2, Edit,
-  Settings as SettingsIcon, Key, UserCheck
+  Settings as SettingsIcon, Key, UserCheck, X
 } from 'lucide-react';
 
 interface Props {
@@ -16,14 +16,14 @@ interface Props {
   companies: Company[];
 }
 
-const Settings: React.FC<Props> = ({ user, settings, users, markets, companies }) => {
+const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], companies = [] }) => {
   const [activeSubTab, setActiveSubTab] = useState('general');
   const [newTickerText, setNewTickerText] = useState(settings?.tickerText || '');
   const [newProgramName, setNewProgramName] = useState(settings?.programName || '');
   const [whatsapp, setWhatsapp] = useState(settings?.whatsappNumber || '');
   
   // User Management States
-  const [newUser, setNewUser] = useState({ username: '', password: '', employeeName: '', role: 'user' as const });
+  const [newUser, setNewUser] = useState({ username: '', password: '', employeeName: '', role: 'coordinator' as UserRole });
   const [editingPermissions, setEditingPermissions] = useState<string | null>(null);
   const [editingCredentials, setEditingCredentials] = useState<User | null>(null);
   const [messageTarget, setMessageTarget] = useState<string | null>(null);
@@ -62,7 +62,7 @@ const Settings: React.FC<Props> = ({ user, settings, users, markets, companies }
       },
       vacationBalance: { annual: 21, casual: 7, sick: 15, exams: 0 }
     });
-    setNewUser({ username: '', password: '', employeeName: '', role: 'user' });
+    setNewUser({ username: '', password: '', employeeName: '', role: 'coordinator' });
     alert("تمت إضافة الموظف بنجاح");
   };
 
@@ -71,7 +71,8 @@ const Settings: React.FC<Props> = ({ user, settings, users, markets, companies }
     await update(ref(db, `users/${editingCredentials.id}`), {
       username: editingCredentials.username,
       password: editingCredentials.password,
-      employeeName: editingCredentials.employeeName
+      employeeName: editingCredentials.employeeName,
+      role: editingCredentials.role
     });
     setEditingCredentials(null);
     alert("تم تحديث بيانات الحساب");
@@ -97,7 +98,7 @@ const Settings: React.FC<Props> = ({ user, settings, users, markets, companies }
 
   const addItem = async (type: 'markets' | 'companies') => {
     if (!newItemName) return;
-    await push(ref(db, type), { name: newItemName });
+    await push(ref(db, type), { name: newItemName, creatorId: user.id });
     setNewItemName('');
   };
 
@@ -113,9 +114,17 @@ const Settings: React.FC<Props> = ({ user, settings, users, markets, companies }
     }
   };
 
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'admin': return 'مدير نظام';
+      case 'coordinator': return 'منسق';
+      case 'usher': return 'أشر';
+      default: return 'موظف';
+    }
+  };
+
   return (
     <div className="space-y-8 pb-20">
-      {/* Settings Navigation */}
       <div className="flex gap-3 overflow-x-auto pb-4 scrollbar-hide">
         {[
           { id: 'general', label: 'إعدادات عامة', icon: <SettingsIcon size={20}/> },
@@ -181,8 +190,9 @@ const Settings: React.FC<Props> = ({ user, settings, users, markets, companies }
               <input className="bg-slate-50 p-5 rounded-2xl outline-none font-bold text-sm border border-transparent focus:border-rose-200" placeholder="اسم المستخدم" value={newUser.username} onChange={e => setNewUser({...newUser, username: e.target.value})}/>
               <input className="bg-slate-50 p-5 rounded-2xl outline-none font-bold text-sm border border-transparent focus:border-rose-200" type="password" placeholder="كلمة المرور" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})}/>
               <select className="bg-slate-50 p-5 rounded-2xl outline-none font-black text-sm border border-transparent focus:border-rose-200" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value as any})}>
-                <option value="user">موظف (Staff)</option>
                 <option value="admin">مدير (Manager)</option>
+                <option value="coordinator">منسق (Coordinator)</option>
+                <option value="usher">أشر (Usher)</option>
               </select>
             </div>
             <button onClick={handleAddUser} className="mt-8 bg-blue-600 text-white px-10 py-4 rounded-2xl font-black shadow-lg shadow-blue-100 hover:scale-105 transition-all">إضافة الموظف الآن</button>
@@ -192,51 +202,55 @@ const Settings: React.FC<Props> = ({ user, settings, users, markets, companies }
             <div className="p-8 border-b bg-slate-50/50">
               <h4 className="font-black text-rose-900">قائمة حسابات الموظفين</h4>
             </div>
-            <table className="w-full text-right">
-              <thead className="bg-slate-50 text-gray-400 text-[10px] uppercase tracking-widest font-black">
-                <tr>
-                  <th className="p-8">الموظف</th>
-                  <th className="p-8">الحالة والوظيفة</th>
-                  <th className="p-8 text-center">الإجراءات والتحكم</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {users.map(u => (
-                  <tr key={u.id} className="hover:bg-rose-50/30 transition-colors group">
-                    <td className="p-8">
-                      <div className="flex items-center gap-5">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg ${u.isOnline ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                          {u.employeeName.charAt(0)}
-                        </div>
-                        <div>
-                          <p className="font-black text-gray-800">{u.employeeName}</p>
-                          <p className="text-xs text-gray-400 font-bold">@{u.username}</p>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-8">
-                      <div className="flex flex-col gap-1">
-                        <span className={`text-[10px] font-black uppercase tracking-widest ${u.role === 'admin' ? 'text-purple-600' : 'text-blue-500'}`}>
-                          {u.role === 'admin' ? 'مدير نظام' : 'مندوب مبيعات'}
-                        </span>
-                        <div className="flex items-center gap-2">
-                           <div className={`w-2 h-2 rounded-full ${u.isOnline ? 'bg-blue-500 animate-pulse' : 'bg-rose-100'}`}></div>
-                           <span className="text-[10px] font-bold text-gray-400 uppercase">{u.isOnline ? 'Online' : 'Offline'}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="p-8">
-                      <div className="flex gap-2 justify-center">
-                        <button onClick={() => setMessageTarget(u.id)} className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm" title="إرسال رسالة"><Send size={18}/></button>
-                        <button onClick={() => setEditingPermissions(u.id)} className="p-3 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm" title="الصلاحيات"><Shield size={18}/></button>
-                        <button onClick={() => setEditingCredentials(u)} className="p-3 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-600 hover:text-white transition-all shadow-sm" title="تعديل الحساب"><Edit size={18}/></button>
-                        <button onClick={() => deleteUser(u)} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm" title="حذف الحساب"><Trash2 size={18}/></button>
-                      </div>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-right min-w-[600px]">
+                <thead className="bg-slate-50 text-gray-400 text-[10px] uppercase tracking-widest font-black">
+                  <tr>
+                    <th className="p-8">الموظف</th>
+                    <th className="p-8">الوظيفة والحالة</th>
+                    <th className="p-8 text-center">الإجراءات والتحكم</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {users.length > 0 ? users.map(u => (
+                    <tr key={u.id} className="hover:bg-rose-50/30 transition-colors group">
+                      <td className="p-8">
+                        <div className="flex items-center gap-5">
+                          <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg ${u.isOnline ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                            {u.employeeName?.charAt(0) || '?'}
+                          </div>
+                          <div>
+                            <p className="font-black text-gray-800">{u.employeeName}</p>
+                            <p className="text-xs text-gray-400 font-bold">@{u.username}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-8">
+                        <div className="flex flex-col gap-1">
+                          <span className={`text-[10px] font-black uppercase tracking-widest ${u.role === 'admin' ? 'text-purple-600' : u.role === 'coordinator' ? 'text-blue-500' : 'text-green-600'}`}>
+                            {getRoleLabel(u.role)}
+                          </span>
+                          <div className="flex items-center gap-2">
+                             <div className={`w-2 h-2 rounded-full ${u.isOnline ? 'bg-blue-500 animate-pulse' : 'bg-rose-100'}`}></div>
+                             <span className="text-[10px] font-bold text-gray-400 uppercase">{u.isOnline ? 'Online' : 'Offline'}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="p-8">
+                        <div className="flex gap-2 justify-center">
+                          <button onClick={() => setMessageTarget(u.id)} className="p-3 bg-blue-50 text-blue-600 rounded-xl hover:bg-blue-600 hover:text-white transition-all shadow-sm" title="إرسال رسالة"><Send size={18}/></button>
+                          <button onClick={() => setEditingPermissions(u.id)} className="p-3 bg-rose-50 text-rose-600 rounded-xl hover:bg-rose-600 hover:text-white transition-all shadow-sm" title="الصلاحيات"><Shield size={18}/></button>
+                          <button onClick={() => setEditingCredentials(u)} className="p-3 bg-amber-50 text-amber-600 rounded-xl hover:bg-amber-600 hover:text-white transition-all shadow-sm" title="تعديل الحساب"><Edit size={18}/></button>
+                          <button onClick={() => deleteUser(u)} className="p-3 bg-red-50 text-red-600 rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm" title="حذف الحساب"><Trash2 size={18}/></button>
+                        </div>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr><td colSpan={3} className="p-12 text-center text-gray-400 font-bold italic">لا يوجد موظفين مسجلين حالياً</td></tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       )}
@@ -270,10 +284,9 @@ const Settings: React.FC<Props> = ({ user, settings, users, markets, companies }
         </div>
       )}
 
-      {/* Permissions Modal */}
       {editingPermissions && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[3rem] p-10 max-w-lg w-full shadow-2xl animate-in zoom-in-95">
+          <div className="bg-white rounded-[3rem] p-10 max-w-lg w-full shadow-2xl animate-in zoom-in-95 overflow-y-auto max-h-[90vh]">
             <div className="flex items-center gap-4 mb-8 border-b pb-6">
               <div className="w-12 h-12 rounded-2xl bg-rose-900 flex items-center justify-center text-white"><Shield /></div>
               <div>
@@ -308,7 +321,6 @@ const Settings: React.FC<Props> = ({ user, settings, users, markets, companies }
         </div>
       )}
 
-      {/* Credentials Edit Modal */}
       {editingCredentials && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div className="bg-white rounded-[3rem] p-10 max-w-lg w-full shadow-2xl animate-in zoom-in-95">
@@ -345,6 +357,18 @@ const Settings: React.FC<Props> = ({ user, settings, users, markets, companies }
                   onChange={e => setEditingCredentials({...editingCredentials, password: e.target.value})}
                 />
               </div>
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest mr-2">تعديل الوظيفة</label>
+                <select 
+                  className="w-full bg-slate-50 p-5 rounded-2xl outline-none font-bold border-2 border-transparent focus:border-amber-200"
+                  value={editingCredentials.role}
+                  onChange={e => setEditingCredentials({...editingCredentials, role: e.target.value as any})}
+                >
+                  <option value="admin">مدير (Manager)</option>
+                  <option value="coordinator">منسق (Coordinator)</option>
+                  <option value="usher">أشر (Usher)</option>
+                </select>
+              </div>
             </div>
             <div className="flex gap-4 mt-10">
               <button onClick={handleUpdateCredentials} className="flex-1 bg-amber-600 text-white py-5 rounded-2xl font-black shadow-xl shadow-amber-100 hover:scale-105 transition-all flex items-center justify-center gap-3">
@@ -356,7 +380,6 @@ const Settings: React.FC<Props> = ({ user, settings, users, markets, companies }
         </div>
       )}
 
-      {/* Message Modal */}
       {messageTarget && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div className="bg-white rounded-[3rem] p-10 max-w-lg w-full shadow-2xl animate-in zoom-in-95">
@@ -380,7 +403,6 @@ const Settings: React.FC<Props> = ({ user, settings, users, markets, companies }
         </div>
       )}
 
-      {/* Edit Item Modal (Market/Company) */}
       {editItem && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4">
           <div className="bg-white rounded-[3rem] p-10 max-w-md w-full shadow-2xl animate-in zoom-in-95">
