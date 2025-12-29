@@ -21,6 +21,7 @@ import Settings from './views/Settings';
 import Login from './views/Login';
 
 const App: React.FC = () => {
+  // 1. All useState hooks at the top
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState('daily-sales');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -35,6 +36,7 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<AppTheme>('standard');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+  // 2. All useEffect hooks
   useEffect(() => {
     window.addEventListener('online', () => setIsOnline(true));
     window.addEventListener('offline', () => setIsOnline(false));
@@ -61,25 +63,6 @@ const App: React.FC = () => {
     setIsLoading(false);
   }, []);
 
-  const starOfMonthInfo = useMemo(() => {
-    if (!sales.length) return null;
-    const now = new Date();
-    const currentMonthSales = sales.filter(s => {
-      if (!s.date) return false;
-      const d = new Date(s.date);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    });
-
-    const userTotals: Record<string, {name: string, total: number}> = {};
-    currentMonthSales.forEach(s => {
-      if (!userTotals[s.userId]) userTotals[s.userId] = { name: s.userName || 'غير معروف', total: 0 };
-      userTotals[s.userId].total += (Number(s.total) || 0);
-    });
-
-    const sorted = Object.values(userTotals).sort((a, b) => b.total - a.total);
-    return sorted[0] || null;
-  }, [sales]);
-
   useEffect(() => {
     if (user) {
       onValue(ref(db, 'markets'), (snapshot) => {
@@ -98,11 +81,7 @@ const App: React.FC = () => {
           setCompanies(filtered);
         }
       });
-    }
-  }, [user]);
 
-  useEffect(() => {
-    if (user) {
       const notifRef = ref(db, 'notifications');
       onValue(notifRef, (snapshot) => {
         const data = snapshot.val();
@@ -117,7 +96,39 @@ const App: React.FC = () => {
     }
   }, [user]);
 
+  // 3. All useMemo hooks (Moved BEFORE early returns to fix Error 310)
+  const starOfMonthInfo = useMemo(() => {
+    if (!sales || sales.length === 0) return null;
+    const now = new Date();
+    const currentMonthSales = sales.filter(s => {
+      if (!s.date) return false;
+      const d = new Date(s.date);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+
+    const userTotals: Record<string, {name: string, total: number}> = {};
+    currentMonthSales.forEach(s => {
+      const uid = s.userId || 'unknown';
+      if (!userTotals[uid]) userTotals[uid] = { name: s.userName || 'غير معروف', total: 0 };
+      userTotals[uid].total += (Number(s.total) || 0);
+    });
+
+    const sorted = Object.values(userTotals).sort((a, b) => b.total - a.total);
+    return sorted[0] || null;
+  }, [sales]);
+
+  const constructedTickerText = useMemo(() => {
+    let text = settings?.tickerText || '';
+    if (settings?.showTopSalesInTicker && starOfMonthInfo) {
+      const topSalesMsg = `🏆 نجم الشهر الحالي: ${starOfMonthInfo.name} بمبيعات إجمالية ${(starOfMonthInfo.total || 0).toLocaleString()} ج.م 🏆`;
+      text = topSalesMsg + (text ? ` | ${text}` : '');
+    }
+    return text;
+  }, [settings, starOfMonthInfo]);
+
+  // 4. Handlers
   const handleLogin = (loggedUser: User) => {
+    // Ensuring safety defaults to fix the white screen issue permanently
     const safeUser = {
       ...loggedUser,
       permissions: loggedUser.permissions || {
@@ -131,21 +142,22 @@ const App: React.FC = () => {
         viewSettings: false,
         viewColleaguesSales: false
       },
-      vacationBalance: loggedUser.vacationBalance || { annual: 14, casual: 7, sick: 0, exams: 0, absent_with_permission: 0, absent_without_permission: 0 }
+      vacationBalance: loggedUser.vacationBalance || { 
+        annual: 14, casual: 7, sick: 0, exams: 0, 
+        absent_with_permission: 0, absent_without_permission: 0 
+      }
     };
     setUser(safeUser);
-    update(ref(db, `users/${loggedUser.id}`), { isOnline: true });
+    if (loggedUser.id) {
+      update(ref(db, `users/${loggedUser.id}`), { isOnline: true });
+    }
   };
 
   const handleLogout = () => {
-    if (user && user.id !== 'admin-id') {
+    if (user && user.id && user.id !== 'admin-id') {
       update(ref(db, `users/${user.id}`), { isOnline: false });
     }
     setUser(null);
-  };
-
-  const deleteNotification = (id: string) => {
-    remove(ref(db, `notifications/${id}`));
   };
 
   const cycleTheme = () => {
@@ -162,6 +174,7 @@ const App: React.FC = () => {
     }
   };
 
+  // 5. Early Returns (Only after all hooks)
   if (isLoading) return (
     <div className="h-screen flex flex-col items-center justify-center bg-rose-50">
       <Loader2 className="animate-spin text-rose-600 mb-4" size={48}/>
@@ -171,8 +184,13 @@ const App: React.FC = () => {
 
   if (!user) return <Login onLogin={handleLogin} />;
 
+  // 6. UI Logic (Variables, not hooks)
   const unreadCount = notifications.filter(n => !n.isRead).length;
-  const up = user.permissions || {};
+  const up = user.permissions || {
+    registerSales: true, viewSalesHistory: true, registerInventory: true, 
+    viewInventoryHistory: true, registerCompetitorPrices: true, 
+    viewCompetitorReports: true, viewVacationMgmt: true, viewSettings: false, viewColleaguesSales: false
+  };
   
   const sidebarItems = [
     { id: 'daily-sales', label: 'المبيعات اليومية', icon: <ShoppingCart size={20}/>, visible: user.role === 'admin' || up.registerSales },
@@ -184,15 +202,6 @@ const App: React.FC = () => {
     { id: 'vacation-mgmt', label: 'رصيد الاجازات', icon: <Calendar size={20}/>, visible: user.role === 'admin' || up.viewVacationMgmt },
     { id: 'settings', label: 'إعدادات النظام', icon: <SettingsIcon size={20}/>, visible: user.role === 'admin' || up.viewSettings },
   ].filter(i => i.visible);
-
-  const constructedTickerText = useMemo(() => {
-    let text = settings?.tickerText || '';
-    if (settings?.showTopSalesInTicker && starOfMonthInfo) {
-      const topSalesMsg = `🏆 نجم الشهر الحالي: ${starOfMonthInfo.name} بمبيعات إجمالية ${(starOfMonthInfo.total || 0).toLocaleString()} ج.م 🏆`;
-      text = topSalesMsg + (text ? ` | ${text}` : '');
-    }
-    return text;
-  }, [settings, starOfMonthInfo]);
 
   return (
     <div className={`flex h-screen overflow-hidden theme-${theme} transition-all duration-300 relative`}>
@@ -215,7 +224,7 @@ const App: React.FC = () => {
               <button
                 key={item.id}
                 onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }}
-                className={`w-full flex items-center gap-4 px-5 py-4 rounded-xl transition-all duration-200 ${activeTab === item.id ? 'bg-white text-rose-900 font-bold shadow-xl' : 'hover:bg-white/10 opacity-80'}`}
+                className={`w-full flex items-center gap-4 px-5 py-4 rounded-xl transition-all duration-200 ${activeTab === item.id ? 'bg-white text-rose-900 font-bold shadow-xl shadow-rose-100' : 'hover:bg-white/10 opacity-80'}`}
               >
                 <span className={activeTab === item.id ? 'text-rose-600' : 'text-white'}>{item.icon}</span>
                 <span className="text-sm font-bold">{item.label}</span>
@@ -241,8 +250,8 @@ const App: React.FC = () => {
             <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 hover:bg-rose-50 rounded-xl transition-all">
               <Menu size={20} className="text-rose-800" />
             </button>
-            <div className="flex flex-col">
-              <h2 className="font-black text-rose-900 text-sm md:text-xl truncate">
+            <div className="flex flex-col min-w-0">
+              <h2 className="font-black text-rose-900 text-sm md:text-xl truncate leading-tight">
                 {settings?.programName || 'Soft Rose Modern Trade'}
               </h2>
               <span className="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest truncate">
@@ -252,7 +261,7 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-1 md:gap-2">
-            <div className="flex items-center bg-slate-100/70 p-1 rounded-xl gap-1">
+            <div className="flex items-center bg-slate-100/70 p-1 rounded-xl gap-1 shadow-inner">
               <button onClick={openWhatsApp} className="p-2 md:p-3 text-green-600 hover:bg-white rounded-lg transition-all"><MessageCircle size={18} /></button>
               <button onClick={cycleTheme} className="p-2 md:p-3 text-amber-500 hover:bg-white rounded-lg transition-all"><Palette size={18} /></button>
               <div className={`p-2 md:p-3 rounded-lg ${isOnline ? 'text-blue-600' : 'text-red-500'}`}>{isOnline ? <Wifi size={18} /> : <WifiOff size={18} />}</div>
