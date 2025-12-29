@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, DailySale, SaleItem } from '../types';
-import { Search, Download, Trash2, Edit, Trophy, BarChart3, FileSpreadsheet, ListFilter, X } from 'lucide-react';
-import { db, ref, onValue, remove } from '../firebase';
+import { Search, Download, Trash2, Edit, Trophy, BarChart3, FileSpreadsheet, ListFilter, X, Clock, Calendar as CalendarIcon } from 'lucide-react';
+import { db, ref, onValue, remove, update } from '../firebase';
 import * as XLSX from 'xlsx';
 
 interface Props {
@@ -14,6 +14,7 @@ interface Props {
 const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
   const [sales, setSales] = useState<DailySale[]>([]);
   const [selectedSale, setSelectedSale] = useState<DailySale | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [filters, setFilters] = useState({
     dateStart: '',
     dateEnd: '',
@@ -39,6 +40,13 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
       }
     });
   }, [user]);
+
+  const handleDelete = (id: string) => {
+    if (window.confirm("⚠️ هل أنت متأكد من حذف هذه العملية نهائياً؟ لا يمكن التراجع عن هذا الإجراء.")) {
+      remove(ref(db, `sales/${id}`));
+      alert("تم الحذف بنجاح");
+    }
+  };
 
   const stats = useMemo(() => {
     if (!sales.length) return { star: null, topItems: [] };
@@ -88,129 +96,184 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
   });
 
   return (
-    <div className="space-y-8 pb-20 px-2 md:px-0">
-      {/* Stats Section with Protection */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-rose-50 shadow-sm relative overflow-hidden group">
-          <div className="relative z-10 flex items-center gap-6">
-            <div className="p-5 bg-amber-100 text-amber-600 rounded-2xl"><Trophy size={32} /></div>
-            <div>
-              <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-1">نجم الشهر الحالي</p>
-              {stats.star ? (
-                <>
-                  <h3 className="text-xl md:text-2xl font-black text-rose-900">{stats.star.name}</h3>
-                  <p className="text-xs font-bold text-gray-400 mt-1">المبيعات: <span className="text-rose-600">{stats.star.total.toLocaleString()} ج.م</span></p>
-                </>
-              ) : <p className="text-gray-300 font-bold">لا توجد بيانات كافية</p>}
-            </div>
+    <div className="space-y-6 pb-20 px-1 md:px-0">
+      {/* Stats Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="bg-white rounded-3xl p-5 border border-rose-50 shadow-sm flex items-center gap-4">
+          <div className="p-4 bg-amber-50 text-amber-600 rounded-2xl"><Trophy size={28} /></div>
+          <div>
+            <p className="text-[9px] font-black text-amber-500 uppercase tracking-widest mb-0.5">نجم مبيعات الشهر</p>
+            {stats.star ? (
+              <h3 className="text-lg font-black text-rose-900">{stats.star.name}</h3>
+            ) : <p className="text-gray-300 text-xs">جاري الحساب...</p>}
           </div>
         </div>
-
-        <div className="bg-white rounded-[2rem] p-6 md:p-8 border border-rose-50 shadow-sm">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="p-2 bg-blue-50 text-blue-600 rounded-lg"><BarChart3 size={20} /></div>
-            <h3 className="text-base font-black text-rose-900">الأصناف الأكثر مبيعاً</h3>
-          </div>
-          <div className="space-y-2">
-            {stats.topItems.map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between p-2 bg-slate-50 rounded-xl text-xs font-bold">
-                <span className="text-gray-600">{item.name}</span>
-                <span className="text-blue-600">{item.quantity} قطعه</span>
-              </div>
-            ))}
-            {!stats.topItems.length && <p className="text-center py-4 text-gray-300">لا توجد إحصائيات</p>}
-          </div>
+        <div className="bg-white rounded-3xl p-5 border border-rose-50 shadow-sm flex items-center justify-between">
+           <div className="flex items-center gap-3">
+             <div className="p-3 bg-blue-50 text-blue-600 rounded-2xl"><BarChart3 size={24} /></div>
+             <span className="text-xs font-black text-gray-500">إجمالي السجلات: {filteredSales.length}</span>
+           </div>
+           <button onClick={() => {
+              const data = filteredSales.map(s => ({ "الماركت": s.marketName, "الموظف": s.userName, "التاريخ": s.date, "الإجمالي": s.total }));
+              const ws = XLSX.utils.json_to_sheet(data);
+              const wb = XLSX.utils.book_new();
+              XLSX.utils.book_append_sheet(wb, ws, "Sales");
+              XLSX.writeFile(wb, "SalesHistory.xlsx");
+           }} className="p-2 bg-green-50 text-green-600 rounded-xl hover:bg-green-600 hover:text-white transition-all"><FileSpreadsheet size={20}/></button>
         </div>
       </div>
 
       {/* Filter Section */}
-      <div className="bg-white p-6 md:p-8 rounded-[2rem] shadow-sm border border-rose-50">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6 mb-8">
-           <div className="flex items-center gap-3">
-             <div className="p-3 bg-rose-900 text-white rounded-2xl"><ListFilter size={20}/></div>
-             <h2 className="text-xl font-black text-rose-900 leading-none">تصفية وبحث السجل</h2>
-           </div>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-          <input type="date" className="w-full bg-slate-50 p-4 rounded-xl font-bold text-sm outline-none border-2 border-transparent focus:border-rose-200" value={filters.dateStart} onChange={e => setFilters({...filters, dateStart:e.target.value})}/>
-          <input type="date" className="w-full bg-slate-50 p-4 rounded-xl font-bold text-sm outline-none border-2 border-transparent focus:border-rose-200" value={filters.dateEnd} onChange={e => setFilters({...filters, dateEnd:e.target.value})}/>
-          <select className="w-full bg-slate-50 p-4 rounded-xl font-bold text-sm outline-none border-2 border-transparent focus:border-rose-200" value={filters.employeeId} onChange={e => setFilters({...filters, employeeId:e.target.value})}>
+      <div className="bg-white p-4 md:p-6 rounded-[2rem] shadow-sm border border-rose-50">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+          <input type="date" className="bg-slate-50 p-3 rounded-xl font-bold text-[11px] outline-none border-2 border-transparent focus:border-rose-200" value={filters.dateStart} onChange={e => setFilters({...filters, dateStart:e.target.value})}/>
+          <input type="date" className="bg-slate-50 p-3 rounded-xl font-bold text-[11px] outline-none border-2 border-transparent focus:border-rose-200" value={filters.dateEnd} onChange={e => setFilters({...filters, dateEnd:e.target.value})}/>
+          <select className="bg-slate-50 p-3 rounded-xl font-bold text-[11px] outline-none border-2 border-transparent focus:border-rose-200" value={filters.employeeId} onChange={e => setFilters({...filters, employeeId:e.target.value})}>
             <option value="">كل الموظفين</option>
-            {users && users.map(u => <option key={u.id} value={u.id}>{u.employeeName}</option>)}
+            {users.map(u => <option key={u.id} value={u.id}>{u.employeeName}</option>)}
           </select>
-          <select className="w-full bg-slate-50 p-4 rounded-xl font-bold text-sm outline-none border-2 border-transparent focus:border-rose-200" value={filters.marketName} onChange={e => setFilters({...filters, marketName:e.target.value})}>
+          <select className="bg-slate-50 p-3 rounded-xl font-bold text-[11px] outline-none border-2 border-transparent focus:border-rose-200" value={filters.marketName} onChange={e => setFilters({...filters, marketName:e.target.value})}>
             <option value="">كل الماركت</option>
-            {markets && markets.map(m => <option key={m} value={m}>{m}</option>)}
+            {markets.map(m => <option key={m} value={m}>{m}</option>)}
           </select>
         </div>
 
-        {/* Sales Table */}
+        {/* Sales Table - Reduced Font Size and Detailed Columns */}
         <div className="overflow-x-auto rounded-2xl border border-slate-50">
-          <table className="w-full text-right border-collapse min-w-[600px]">
-            <thead className="bg-slate-50 text-[10px] uppercase font-black text-gray-400 tracking-widest">
+          <table className="w-full text-right border-collapse min-w-[700px]">
+            <thead className="bg-slate-50 text-[9px] uppercase font-black text-gray-400 tracking-widest">
               <tr>
-                <th className="p-6">التاريخ</th>
-                <th className="p-6">الموظف</th>
-                <th className="p-6">الماركت</th>
-                <th className="p-6">القيمة</th>
-                <th className="p-6 text-center">عرض</th>
+                <th className="p-4">الماركت</th>
+                <th className="p-4">الموظف</th>
+                <th className="p-4">اليوم</th>
+                <th className="p-4">الساعة</th>
+                <th className="p-4">القيمة</th>
+                <th className="p-4 text-center">الإجراءات</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {filteredSales.map(sale => (
-                <tr key={sale.id} className="hover:bg-rose-50/30 transition-colors cursor-pointer" onClick={() => setSelectedSale(sale)}>
-                  <td className="p-6 font-bold text-gray-700 text-sm">
-                    {sale.date ? new Date(sale.date).toLocaleDateString('ar-EG') : '---'}
-                  </td>
-                  <td className="p-6 font-bold text-gray-600 text-sm">{sale.userName || 'مجهول'}</td>
-                  <td className="p-6">
-                    <span className="bg-slate-100 px-3 py-1 rounded-full text-xs font-bold text-slate-500">{sale.marketName}</span>
-                  </td>
-                  <td className="p-6 font-black text-rose-900 text-sm">{(sale.total || 0).toLocaleString()} <span className="text-[10px] opacity-40">ج.م</span></td>
-                  <td className="p-6 text-center">
-                    <button className="p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-600 hover:text-white transition-all"><Search size={16}/></button>
-                  </td>
-                </tr>
-              ))}
+              {filteredSales.map(sale => {
+                const sDate = new Date(sale.date);
+                return (
+                  <tr key={sale.id} className="hover:bg-rose-50/30 transition-colors">
+                    <td className="p-4">
+                      <div className="flex flex-col">
+                        <span className="font-black text-rose-900 text-[11px]">{sale.marketName}</span>
+                      </div>
+                    </td>
+                    <td className="p-4 font-bold text-gray-600 text-[10px]">{sale.userName}</td>
+                    <td className="p-4 font-bold text-gray-500 text-[10px]">
+                      <div className="flex items-center gap-1.5">
+                        <CalendarIcon size={12} className="opacity-40" />
+                        {sDate.toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'numeric' })}
+                      </div>
+                    </td>
+                    <td className="p-4 font-bold text-blue-500 text-[10px]">
+                      <div className="flex items-center gap-1.5">
+                        <Clock size={12} className="opacity-40" />
+                        {sDate.toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </td>
+                    <td className="p-4 font-black text-gray-900 text-[11px]">{(sale.total || 0).toLocaleString()} ج.م</td>
+                    <td className="p-4">
+                      <div className="flex items-center justify-center gap-1.5">
+                        <button onClick={() => setSelectedSale(sale)} className="p-2 bg-slate-100 text-slate-500 rounded-lg hover:bg-slate-200" title="عرض التفاصيل"><Search size={14}/></button>
+                        
+                        {user.role === 'admin' && (
+                          <>
+                            <button onClick={() => { setSelectedSale(sale); setIsEditing(true); }} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-600 hover:text-white transition-all" title="تعديل"><Edit size={14}/></button>
+                            <button onClick={() => handleDelete(sale.id)} className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-600 hover:text-white transition-all" title="حذف"><Trash2 size={14}/></button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-          {!filteredSales.length && <div className="py-20 text-center text-gray-300 font-bold italic">لا توجد بيانات مطابقة</div>}
+          {!filteredSales.length && <div className="py-20 text-center text-gray-300 font-bold italic text-xs">لا توجد بيانات متاحة حالياً</div>}
         </div>
       </div>
 
-      {/* Sale Details Modal */}
+      {/* Details / Edit Modal */}
       {selectedSale && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl animate-in zoom-in-95">
-            <div className="bg-rose-900 p-8 text-white flex justify-between items-center">
+            <div className="bg-rose-900 p-6 text-white flex justify-between items-center">
               <div>
-                <h3 className="text-xl font-black">تفاصيل فاتورة المبيعات</h3>
-                <p className="text-[10px] font-bold text-rose-300 uppercase mt-1">{selectedSale.marketName} • {new Date(selectedSale.date).toLocaleDateString()}</p>
+                <h3 className="text-lg font-black">{isEditing ? 'تعديل فاتورة البيع' : 'تفاصيل الفاتورة'}</h3>
+                <p className="text-[9px] font-bold text-rose-300 uppercase mt-1">{selectedSale.marketName} • {new Date(selectedSale.date).toLocaleString('ar-EG')}</p>
               </div>
-              <button onClick={() => setSelectedSale(null)} className="p-2 hover:bg-white/10 rounded-full"><X size={24}/></button>
+              <button onClick={() => { setSelectedSale(null); setIsEditing(false); }} className="p-2 hover:bg-white/10 rounded-full"><X size={24}/></button>
             </div>
-            <div className="p-8 max-h-[60vh] overflow-y-auto">
-              <div className="space-y-3">
-                <div className="grid grid-cols-4 gap-4 text-[10px] font-black text-gray-400 uppercase tracking-widest px-4">
-                  <span className="col-span-1">الصنف</span>
-                  <span className="text-center">السعر</span>
-                  <span className="text-center">العدد</span>
-                  <span className="text-center">الإجمالي</span>
-                </div>
-                {selectedSale.items?.map((item, idx) => (
-                  <div key={idx} className="grid grid-cols-4 gap-4 p-4 bg-slate-50 rounded-2xl items-center text-xs font-bold">
-                    <span className="text-gray-800 leading-tight">{item.productName}</span>
-                    <span className="text-center text-rose-600">{item.price} ج.م</span>
-                    <span className="text-center text-blue-600">{item.quantity}</span>
-                    <span className="text-center text-gray-900">{(item.price * item.quantity).toLocaleString()} ج.م</span>
+            
+            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-3">
+              <div className="grid grid-cols-4 gap-2 text-[9px] font-black text-gray-400 uppercase text-center">
+                <span className="text-right">الصنف</span>
+                <span>السعر</span>
+                <span>العدد</span>
+                <span>الإجمالي</span>
+              </div>
+              
+              {selectedSale.items?.map((item, idx) => (
+                <div key={idx} className="grid grid-cols-4 gap-2 p-3 bg-slate-50 rounded-xl items-center text-[11px] font-bold">
+                  <span className="text-gray-800 leading-tight">{item.productName}</span>
+                  <div className="text-center">
+                    {isEditing ? (
+                      <input 
+                        type="number" 
+                        className="w-16 bg-white border border-slate-200 rounded p-1 text-center"
+                        value={item.price}
+                        onChange={(e) => {
+                          const newItems = [...selectedSale.items];
+                          newItems[idx].price = Number(e.target.value);
+                          setSelectedSale({...selectedSale, items: newItems});
+                        }}
+                      />
+                    ) : <span>{item.price}</span>}
                   </div>
-                ))}
-              </div>
+                  <div className="text-center">
+                    {isEditing ? (
+                      <input 
+                        type="number" 
+                        className="w-16 bg-white border border-slate-200 rounded p-1 text-center"
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const newItems = [...selectedSale.items];
+                          newItems[idx].quantity = Number(e.target.value);
+                          setSelectedSale({...selectedSale, items: newItems});
+                        }}
+                      />
+                    ) : <span>{item.quantity}</span>}
+                  </div>
+                  <span className="text-center text-rose-600">{(item.price * item.quantity).toLocaleString()}</span>
+                </div>
+              ))}
             </div>
-            <div className="p-8 bg-rose-50 border-t flex justify-between items-center">
-               <span className="font-black text-rose-900">الإجمالي النهائي للعملية</span>
-               <span className="text-2xl font-black text-rose-900">{selectedSale.total?.toLocaleString()} ج.م</span>
+
+            <div className="p-6 bg-rose-50 border-t flex justify-between items-center">
+               <span className="font-black text-rose-900 text-sm">صافي القيمة الإجمالية</span>
+               <div className="flex items-center gap-4">
+                  <span className="text-xl font-black text-rose-900">
+                    {selectedSale.items.reduce((acc, i) => acc + (i.price * i.quantity), 0).toLocaleString()} ج.م
+                  </span>
+                  {isEditing && (
+                    <button 
+                      onClick={async () => {
+                        const newTotal = selectedSale.items.reduce((acc, i) => acc + (i.price * i.quantity), 0);
+                        await update(ref(db, `sales/${selectedSale.id}`), {
+                          items: selectedSale.items,
+                          total: newTotal
+                        });
+                        alert("تم تحديث البيانات بنجاح");
+                        setSelectedSale(null);
+                        setIsEditing(false);
+                      }}
+                      className="bg-rose-800 text-white px-6 py-2 rounded-xl font-black text-sm"
+                    >حفظ التعديلات</button>
+                  )}
+               </div>
             </div>
           </div>
         </div>

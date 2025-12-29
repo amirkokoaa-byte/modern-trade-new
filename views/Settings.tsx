@@ -24,12 +24,7 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
   
   const [newUser, setNewUser] = useState({ username: '', password: '', employeeName: '', role: 'coordinator' as UserRole });
   const [editingPermissions, setEditingPermissions] = useState<string | null>(null);
-  const [editingCredentials, setEditingCredentials] = useState<User | null>(null);
   const [messageTarget, setMessageTarget] = useState<string | null>(null);
-  const [messageText, setMessageText] = useState('');
-
-  const [newItemName, setNewItemName] = useState('');
-  const [editItem, setEditItem] = useState<{id: string, name: string, type: 'markets' | 'companies'} | null>(null);
 
   const handleSaveGeneral = async () => {
     await update(ref(db, 'settings'), {
@@ -37,7 +32,14 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
       programName: newProgramName,
       whatsappNumber: whatsapp
     });
-    alert("تم حفظ الإعدادات");
+    alert("تم حفظ الإعدادات بنجاح");
+  };
+
+  const handleDeleteUser = (id: string, name: string) => {
+    if (window.confirm(`⚠️ هل أنت متأكد من حذف الموظف "${name}" من النظام؟ سيؤدي هذا لإيقاف دخوله للبرنامج.`)) {
+      remove(ref(db, `users/${id}`));
+      alert("تم حذف الموظف بنجاح");
+    }
   };
 
   const getRoleLabel = (role: string) => {
@@ -107,10 +109,11 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
               </select>
             </div>
             <button onClick={() => {
-              if(!newUser.username || !newUser.password) return alert("اكمل البيانات");
+              if(!newUser.username || !newUser.password) return alert("يرجى إكمال جميع البيانات");
               const id = push(ref(db, 'users')).key || '';
               set(ref(db, `users/${id}`), { ...newUser, id, isOnline: false, permissions: { viewSalesHistory: true, registerInventory: true, viewInventoryHistory: true } });
               setNewUser({ username: '', password: '', employeeName: '', role: 'coordinator' });
+              alert("تمت إضافة الموظف بنجاح");
             }} className="mt-6 bg-blue-600 text-white px-10 py-4 rounded-xl font-black">إضافة الموظف</button>
           </div>
 
@@ -125,7 +128,7 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {users && users.map(u => (
+                  {users.map(u => (
                     <tr key={u.id} className="hover:bg-rose-50/20">
                       <td className="p-6">
                         <div className="flex items-center gap-3">
@@ -138,9 +141,8 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
                       <td className="p-6 font-bold text-xs text-rose-500">{getRoleLabel(u.role)}</td>
                       <td className="p-6">
                         <div className="flex gap-2 justify-center">
-                          <button onClick={() => setMessageTarget(u.id)} className="p-2 bg-blue-50 text-blue-600 rounded-lg"><Send size={16}/></button>
-                          <button onClick={() => setEditingPermissions(u.id)} className="p-2 bg-rose-50 text-rose-600 rounded-lg"><Shield size={16}/></button>
-                          <button onClick={() => remove(ref(db, `users/${u.id}`))} className="p-2 bg-red-50 text-red-500 rounded-lg"><Trash2 size={16}/></button>
+                          <button onClick={() => setEditingPermissions(u.id)} className="p-2 bg-rose-50 text-rose-600 rounded-lg hover:bg-rose-600 hover:text-white transition-all"><Shield size={16}/></button>
+                          <button onClick={() => handleDeleteUser(u.id, u.employeeName)} className="p-2 bg-red-50 text-red-500 rounded-lg hover:bg-red-600 hover:text-white transition-all"><Trash2 size={16}/></button>
                         </div>
                       </td>
                     </tr>
@@ -152,7 +154,7 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
         </div>
       )}
 
-      {/* Permission Modal with Null Checks */}
+      {/* Permission Modal */}
       {editingPermissions && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95">
@@ -186,7 +188,6 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
         </div>
       )}
 
-      {/* Ticker Animation CSS Fix */}
       <style>{`
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
