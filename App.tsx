@@ -58,6 +58,7 @@ const App: React.FC = () => {
     setIsLoading(false);
   }, []);
 
+  // Star of the Month Calculation (Day 1 to End of Month)
   const starOfMonthInfo = useMemo(() => {
     const now = new Date();
     const currentMonthSales = sales.filter(s => {
@@ -113,7 +114,23 @@ const App: React.FC = () => {
   }, [user]);
 
   const handleLogin = (loggedUser: User) => {
-    setUser(loggedUser);
+    // Inject safety defaults for permissions and balance to prevent white screen crashes
+    const safeUser = {
+      ...loggedUser,
+      permissions: loggedUser.permissions || {
+        registerSales: true,
+        viewSalesHistory: true,
+        registerInventory: true,
+        viewInventoryHistory: true,
+        registerCompetitorPrices: true,
+        viewCompetitorReports: true,
+        viewVacationMgmt: true,
+        viewSettings: false,
+        viewColleaguesSales: false
+      },
+      vacationBalance: loggedUser.vacationBalance || { annual: 14, casual: 7, sick: 0, exams: 0, absent_with_permission: 0, absent_without_permission: 0 }
+    };
+    setUser(safeUser);
     update(ref(db, `users/${loggedUser.id}`), { isOnline: true });
   };
 
@@ -153,15 +170,17 @@ const App: React.FC = () => {
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
+  // Safe permission checking
+  const up = user.permissions || {};
   const sidebarItems = [
-    { id: 'daily-sales', label: 'المبيعات اليومية', icon: <ShoppingCart size={20}/>, visible: user.role === 'admin' || user.permissions?.registerSales },
-    { id: 'sales-history', label: 'سجل المبيعات', icon: <History size={20}/>, visible: user.role === 'admin' || user.permissions?.viewSalesHistory },
-    { id: 'inventory-reg', label: 'تسجيل المخزون', icon: <Package size={20}/>, visible: user.role === 'admin' || user.permissions?.registerInventory },
-    { id: 'inventory-history', label: 'سجل المخزون', icon: <ClipboardList size={20}/>, visible: user.role === 'admin' || user.permissions?.viewInventoryHistory },
-    { id: 'competitor-prices', label: 'أسعار المنافسين', icon: <TrendingUp size={20}/>, visible: user.role === 'admin' || user.permissions?.registerCompetitorPrices },
-    { id: 'competitor-reports', label: 'تقارير المنافسين', icon: <BarChart size={20}/>, visible: user.role === 'admin' || user.permissions?.viewCompetitorReports },
-    { id: 'vacation-mgmt', label: 'رصيد الاجازات', icon: <Calendar size={20}/>, visible: user.role === 'admin' || user.permissions?.viewVacationMgmt },
-    { id: 'settings', label: 'إعدادات النظام', icon: <SettingsIcon size={20}/>, visible: user.role === 'admin' || user.permissions?.viewSettings },
+    { id: 'daily-sales', label: 'المبيعات اليومية', icon: <ShoppingCart size={20}/>, visible: user.role === 'admin' || up.registerSales },
+    { id: 'sales-history', label: 'سجل المبيعات', icon: <History size={20}/>, visible: user.role === 'admin' || up.viewSalesHistory },
+    { id: 'inventory-reg', label: 'تسجيل المخزون', icon: <Package size={20}/>, visible: user.role === 'admin' || up.registerInventory },
+    { id: 'inventory-history', label: 'سجل المخزون', icon: <ClipboardList size={20}/>, visible: user.role === 'admin' || up.viewInventoryHistory },
+    { id: 'competitor-prices', label: 'أسعار المنافسين', icon: <TrendingUp size={20}/>, visible: user.role === 'admin' || up.registerCompetitorPrices },
+    { id: 'competitor-reports', label: 'تقارير المنافسين', icon: <BarChart size={20}/>, visible: user.role === 'admin' || up.viewCompetitorReports },
+    { id: 'vacation-mgmt', label: 'رصيد الاجازات', icon: <Calendar size={20}/>, visible: user.role === 'admin' || up.viewVacationMgmt },
+    { id: 'settings', label: 'إعدادات النظام', icon: <SettingsIcon size={20}/>, visible: user.role === 'admin' || up.viewSettings },
   ].filter(i => i.visible);
 
   const getRoleLabel = (role: string) => {
@@ -176,7 +195,8 @@ const App: React.FC = () => {
   const constructedTickerText = useMemo(() => {
     let text = settings?.tickerText || '';
     if (settings?.showTopSalesInTicker && starOfMonthInfo) {
-      text = `🏆 نجم الشهر الحالي: ${starOfMonthInfo.name} بمبيعات إجمالية ${starOfMonthInfo.total.toLocaleString()} ج.م 🏆 | ` + text;
+      const topSalesMsg = `🏆 نجم الشهر الحالي: ${starOfMonthInfo.name} بمبيعات إجمالية ${starOfMonthInfo.total.toLocaleString()} ج.م 🏆`;
+      text = topSalesMsg + (text ? ` | ${text}` : '');
     }
     return text;
   }, [settings, starOfMonthInfo]);
@@ -264,7 +284,6 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-1 md:gap-2">
-            {/* Control Center Pill */}
             <div className="flex items-center bg-slate-100/70 p-1 rounded-xl md:rounded-2xl gap-0.5 md:gap-1 shadow-inner">
               <button onClick={openWhatsApp} className="p-2 md:p-3 hover:bg-green-50 text-green-600 rounded-lg md:rounded-xl transition-all" title="واتساب">
                 <MessageCircle size={18} />
@@ -293,7 +312,6 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* Content Section */}
         <div className="flex-1 overflow-y-auto p-3 md:p-8 custom-scrollbar">
           <div className="max-w-7xl mx-auto animate-in fade-in duration-500">
             {activeTab === 'daily-sales' && <DailySales user={user} markets={markets.map(m => m.name)} />}
@@ -308,7 +326,6 @@ const App: React.FC = () => {
         </div>
       </main>
 
-      {/* Notifications Modal */}
       {isNotificationOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setIsNotificationOpen(false)}>
           <div className="bg-white rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10" onClick={e => e.stopPropagation()}>

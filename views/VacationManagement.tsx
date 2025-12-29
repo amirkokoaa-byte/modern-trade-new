@@ -37,22 +37,19 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
 
   const handleAddVacation = async () => {
     const vRef = ref(db, 'vacations');
-    // For non-admins, ensure they only register for themselves
+    // Security: Ensure users only register for themselves if not admin
     const targetUserId = user.role === 'admin' ? newVacation.targetUserId : user.id;
     const targetUser = users.find(u => u.id === targetUserId) || user;
     
-    // Deduction logic for Annual/Casual/AbsentWithPermission
-    const currentBalance = targetUser.vacationBalance || { annual: 14, casual: 7, sick: 0, exams: 0 };
+    const currentBalance = targetUser.vacationBalance || { annual: 14, casual: 7, sick: 0, exams: 0, absent_with_permission: 0, absent_without_permission: 0 };
     let updatedBalance = { ...currentBalance };
     
     if (newVacation.type === 'annual') updatedBalance.annual -= newVacation.days;
     else if (newVacation.type === 'casual') updatedBalance.casual -= newVacation.days;
     else if (newVacation.type === 'absent_with_permission') updatedBalance.absent_with_permission = (updatedBalance.absent_with_permission || 0) - newVacation.days;
 
-    // Save deduction to user object
     await update(ref(db, `users/${targetUser.id}`), { vacationBalance: updatedBalance });
 
-    // Push vacation record
     await push(vRef, {
       ...newVacation,
       userId: targetUser.id,
@@ -94,11 +91,9 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
     setEditingUserBalance(null);
   };
 
-  // Helper to get financial month period (21 to 20)
   const getPeriodRange = (baseDate: Date) => {
     let year = baseDate.getFullYear();
-    let month = baseDate.getMonth(); // 0-11
-    
+    let month = baseDate.getMonth();
     const start = new Date(year, month - 1, 21);
     const end = new Date(year, month, 20);
     return { start, end };
@@ -113,7 +108,7 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
     setCurrentPeriodDate(newDate);
   };
 
-  // Visibility Logic: Normal users only see their own card
+  // Visibility Logic: Each account sees ONLY their own data
   const visibleUsers = useMemo(() => {
     if (user.role === 'admin') return users;
     return users.filter(u => u.id === user.id);
@@ -138,7 +133,6 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
           </button>
         </div>
 
-        {/* User Vacation Cards */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {visibleUsers.map(u => (
             <div key={u.id} className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 group hover:border-rose-200 transition-all relative">
@@ -157,7 +151,6 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
                 )}
               </div>
 
-              {/* 4 Mini Squares showing CURRENT BALANCE */}
               <div className="grid grid-cols-4 gap-2">
                 {[
                   { label: 'سنوي', type: 'annual', balance: u.vacationBalance?.annual ?? 14, text: 'text-blue-600', light: 'bg-blue-50' },
@@ -180,7 +173,6 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
         </div>
       </div>
 
-      {/* Edit Balance Modal (Admin Only) */}
       {editingUserBalance && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95">
@@ -191,7 +183,7 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
                 <input 
                   type="number" className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200"
                   value={editingUserBalance.vacationBalance?.annual}
-                  onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...editingUserBalance.vacationBalance, annual: Number(e.target.value)}})}
+                  onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...(editingUserBalance.vacationBalance || {}), annual: Number(e.target.value)} as any})}
                 />
               </div>
               <div>
@@ -199,7 +191,7 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
                 <input 
                   type="number" className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200"
                   value={editingUserBalance.vacationBalance?.casual}
-                  onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...editingUserBalance.vacationBalance, casual: Number(e.target.value)}})}
+                  onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...(editingUserBalance.vacationBalance || {}), casual: Number(e.target.value)} as any})}
                 />
               </div>
               <div>
@@ -207,7 +199,7 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
                 <input 
                   type="number" className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200"
                   value={editingUserBalance.vacationBalance?.sick}
-                  onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...editingUserBalance.vacationBalance, sick: Number(e.target.value)}})}
+                  onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...(editingUserBalance.vacationBalance || {}), sick: Number(e.target.value)} as any})}
                 />
               </div>
               <div>
@@ -215,7 +207,7 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
                 <input 
                   type="number" className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200"
                   value={editingUserBalance.vacationBalance?.absent_without_permission}
-                  onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...editingUserBalance.vacationBalance, absent_without_permission: Number(e.target.value)}})}
+                  onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...(editingUserBalance.vacationBalance || {}), absent_without_permission: Number(e.target.value)} as any})}
                 />
               </div>
             </div>
@@ -227,7 +219,6 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
         </div>
       )}
 
-      {/* Details Modal (Calendar/Period View) */}
       {selectedDetails && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95">
@@ -245,7 +236,6 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
               <button onClick={() => setSelectedDetails(null)} className="p-2 hover:bg-white/10 rounded-full transition-all"><X size={24}/></button>
             </div>
 
-            {/* Period Navigation */}
             <div className="p-4 bg-slate-50 flex items-center justify-between border-b">
               <button onClick={() => changePeriod('prev')} className="p-2 bg-white rounded-xl shadow-sm hover:bg-rose-50 transition-all text-rose-900"><ChevronRight size={20}/></button>
               <div className="text-center">
@@ -257,7 +247,6 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
               <button onClick={() => changePeriod('next')} className="p-2 bg-white rounded-xl shadow-sm hover:bg-rose-50 transition-all text-rose-900"><ChevronLeft size={20}/></button>
             </div>
 
-            {/* Dates List */}
             <div className="p-6 max-h-[50vh] overflow-y-auto space-y-3">
               {vacations
                 .filter(v => v.userId === selectedDetails.userId && v.type === selectedDetails.type)
@@ -298,7 +287,6 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
         </div>
       )}
 
-      {/* Register New Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95">
