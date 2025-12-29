@@ -38,13 +38,11 @@ const App: React.FC = () => {
     window.addEventListener('online', () => setIsOnline(true));
     window.addEventListener('offline', () => setIsOnline(false));
     
-    // Sync settings
     onValue(ref(db, 'settings'), (snapshot) => {
       const data = snapshot.val();
       if (data) setSettings(data);
     });
 
-    // Sync users
     onValue(ref(db, 'users'), (snapshot) => {
       const data = snapshot.val();
       if (data) setUsers(Object.values(data));
@@ -53,7 +51,6 @@ const App: React.FC = () => {
     setIsLoading(false);
   }, []);
 
-  // Sync markets & companies with privacy filter
   useEffect(() => {
     if (user) {
       onValue(ref(db, 'markets'), (snapshot) => {
@@ -113,6 +110,14 @@ const App: React.FC = () => {
     else setTheme('standard');
   };
 
+  const openWhatsApp = () => {
+    if (settings?.whatsappNumber) {
+      window.open(`https://wa.me/${settings.whatsappNumber}`, '_blank');
+    } else {
+      alert("رقم الواتساب غير مسجل في الإعدادات");
+    }
+  };
+
   if (isLoading) return (
     <div className="h-screen flex flex-col items-center justify-center bg-rose-50">
       <Loader2 className="animate-spin text-rose-600 mb-4" size={48}/>
@@ -148,11 +153,12 @@ const App: React.FC = () => {
     <div className={`flex h-screen overflow-hidden theme-${theme} transition-all duration-300 relative`}>
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-40 md:hidden backdrop-blur-sm" 
+          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm" 
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
 
+      {/* Sidebar Section */}
       <aside className={`bg-rose-900 text-white w-72 flex-shrink-0 transition-all duration-300 z-50 fixed md:relative inset-y-0 ${isSidebarOpen ? 'right-0' : '-right-72 md:right-0'} ${theme === 'glass' ? 'bg-rose-900/70 backdrop-blur-xl border-l border-white/10' : ''} shadow-2xl`}>
         <div className="p-6 flex flex-col h-full">
           <div className="mb-8 flex items-center justify-between">
@@ -168,91 +174,96 @@ const App: React.FC = () => {
               <button
                 key={item.id}
                 onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }}
-                className={`w-full flex items-center gap-4 px-5 py-4 rounded-2xl transition-all duration-200 ${activeTab === item.id ? 'bg-white text-rose-900 font-bold shadow-xl shadow-black/10' : 'hover:bg-white/10 opacity-80 hover:opacity-100'}`}
+                className={`w-full flex items-center gap-4 px-5 py-4 rounded-xl transition-all duration-200 ${activeTab === item.id ? 'bg-white text-rose-900 font-bold shadow-xl shadow-black/10' : 'hover:bg-white/10 opacity-80 hover:opacity-100'}`}
               >
                 <span className={activeTab === item.id ? 'text-rose-600' : 'text-white'}>{item.icon}</span>
-                <span className="text-sm">{item.label}</span>
+                <span className="text-sm font-bold">{item.label}</span>
               </button>
             ))}
 
             {user.role === 'admin' && (
-              <div className="mt-10 pt-6 border-t border-white/10">
+              <div className="mt-8 pt-6 border-t border-white/10">
                 <p className="text-[10px] uppercase text-rose-400 px-5 mb-4 font-black tracking-widest">الموظفون المتصلون</p>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {users.map(u => (
-                    <div key={u.id} className="flex items-center gap-3 px-5">
+                    <div key={u.id} className="flex items-center gap-3 px-5 py-1">
                       <div className="relative">
-                        <div className={`w-2.5 h-2.5 rounded-full ${u.isOnline ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'bg-rose-800'}`}></div>
+                        <div className={`w-2 h-2 rounded-full ${u.isOnline ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'bg-rose-800'}`}></div>
                       </div>
-                      <span className={`text-xs font-bold ${u.isOnline ? 'text-white' : 'text-rose-400/60'}`}>{u.employeeName} ({getRoleLabel(u.role)})</span>
+                      <span className={`text-[11px] font-bold ${u.isOnline ? 'text-white' : 'text-rose-400/60'}`}>{u.employeeName}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
           </nav>
-          <div className="mt-4 text-[10px] text-center text-rose-400/40 uppercase font-bold tracking-widest">
-            System v3.0.0 Stable
-          </div>
         </div>
       </aside>
 
       <main className={`flex-1 flex flex-col min-w-0 overflow-hidden ${theme === 'dark' ? 'bg-[#0a0a0a]' : 'bg-[#F9FAFB]'}`}>
-        {/* Ticker at the VERY top */}
+        
+        {/* Ticker Section */}
         {settings?.tickerText && (
-          <div className="bg-rose-950 py-2 text-white text-[13px] overflow-hidden border-b border-rose-900/50 shadow-inner z-50">
+          <div className="bg-rose-950 py-2 text-white text-[11px] md:text-[13px] overflow-hidden border-b border-rose-900/50 shadow-inner z-50">
             <div className="ticker-container">
               <div className="ticker-text font-bold opacity-90" style={{ animationDuration: '45s' }}>
-                {settings.tickerText} &nbsp;&nbsp; ★ &nbsp;&nbsp; {settings.tickerText} &nbsp;&nbsp; ★ &nbsp;&nbsp; {settings.tickerText}
+                {settings.tickerText} &nbsp;&nbsp; ★ &nbsp;&nbsp; {settings.tickerText}
               </div>
             </div>
           </div>
         )}
 
-        <header className={`h-20 flex items-center justify-between px-8 border-b transition-all duration-300 z-30 ${theme === 'glass' ? 'bg-white/40 backdrop-blur-md border-white/20 shadow-sm' : 'bg-white shadow-sm'} ${theme === 'dark' ? 'bg-[#121212] border-[#222]' : ''}`}>
-          <div className="flex items-center gap-6">
-            <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-3 hover:bg-rose-50 rounded-2xl transition-all">
-              <Menu size={24} className="text-rose-800" />
+        {/* Improved Header Section */}
+        <header className={`h-16 md:h-20 flex items-center justify-between px-3 md:px-8 border-b transition-all duration-300 z-30 ${theme === 'glass' ? 'bg-white/40 backdrop-blur-md border-white/20 shadow-sm' : 'bg-white shadow-sm'} ${theme === 'dark' ? 'bg-[#121212] border-[#222]' : ''}`}>
+          <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
+            <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 hover:bg-rose-50 rounded-xl transition-all">
+              <Menu size={20} className="text-rose-800" />
             </button>
-            <div className="flex flex-col">
-              <h2 className="font-black text-rose-900 text-lg md:text-2xl tracking-tighter uppercase leading-tight">
+            <div className="flex flex-col truncate">
+              <h2 className="font-black text-rose-900 text-sm md:text-xl tracking-tighter uppercase leading-tight truncate">
                 {settings?.programName || 'Soft Rose Modern Trade'}
               </h2>
-              <div className="flex items-center gap-2 mt-0.5">
-                <div className={`w-2 h-2 rounded-full ${isOnline ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-1">
-                  {user.employeeName} <span className="opacity-30">|</span> {getRoleLabel(user.role)}
+              <div className="flex items-center gap-1 mt-0.5">
+                <span className="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest truncate">
+                  {user.employeeName} • {getRoleLabel(user.role)}
                 </span>
               </div>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-slate-100/50 p-1 rounded-2xl gap-1 mr-4 hidden sm:flex">
-              <div className={`p-2 rounded-xl ${isOnline ? 'text-blue-600' : 'text-red-500'}`} title={isOnline ? 'متصل' : 'أنت غير متصل'}>
+          <div className="flex items-center gap-1 md:gap-2">
+            {/* Control Center Pill */}
+            <div className="flex items-center bg-slate-100/70 p-1 rounded-xl md:rounded-2xl gap-0.5 md:gap-1 shadow-inner">
+              <button onClick={openWhatsApp} className="p-2 md:p-3 hover:bg-green-50 text-green-600 rounded-lg md:rounded-xl transition-all" title="واتساب">
+                <MessageCircle size={18} />
+              </button>
+
+              <button onClick={cycleTheme} className="p-2 md:p-3 hover:bg-white hover:shadow-md rounded-lg md:rounded-xl text-amber-500 transition-all" title="الاستايل">
+                <Palette size={18} />
+              </button>
+
+              <div className={`p-2 md:p-3 rounded-lg md:rounded-xl ${isOnline ? 'text-blue-600' : 'text-red-500'}`} title={isOnline ? 'متصل' : 'غير متصل'}>
                 {isOnline ? <Wifi size={18} /> : <WifiOff size={18} />}
               </div>
-              <button onClick={cycleTheme} className="p-2.5 hover:bg-white hover:shadow-md rounded-xl text-gray-500 transition-all group">
-                <Palette size={20} className="group-hover:rotate-12 transition-transform" />
+
+              <button onClick={() => setIsNotificationOpen(true)} className="relative p-2 md:p-3 hover:bg-rose-50 rounded-lg md:rounded-xl text-gray-500 transition-all" title="الإشعارات">
+                <Bell size={18} />
+                {unreadCount > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-600 border-2 border-white rounded-full"></span>
+                )}
               </button>
             </div>
 
-            <button onClick={() => setIsNotificationOpen(true)} className="relative p-3 hover:bg-rose-50 rounded-2xl group transition-all">
-              <Bell size={24} className="text-gray-500 group-hover:text-rose-600" />
-              {unreadCount > 0 && (
-                <span className="absolute top-2.5 right-2.5 w-3.5 h-3.5 bg-red-600 border-2 border-white rounded-full animate-pulse shadow-sm"></span>
-              )}
-            </button>
-
-            <button onClick={handleLogout} className="flex items-center gap-2 p-3 bg-rose-50 text-rose-800 rounded-2xl hover:bg-rose-100 hover:text-rose-900 transition-all font-bold text-sm border border-rose-100">
-              <LogOut size={20} />
-              <span className="hidden lg:inline">خروج</span>
+            <button onClick={handleLogout} className="p-2 md:p-3 bg-rose-50 text-rose-800 rounded-xl md:rounded-2xl hover:bg-rose-100 transition-all font-bold text-[11px] md:text-sm border border-rose-100 ml-1">
+              <LogOut size={18} className="md:hidden" />
+              <span className="hidden md:inline">خروج</span>
             </button>
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-10 custom-scrollbar">
-          <div className="max-w-7xl mx-auto animate-in fade-in slide-in-from-bottom-2 duration-500">
+        {/* Content Section */}
+        <div className="flex-1 overflow-y-auto p-3 md:p-8 custom-scrollbar">
+          <div className="max-w-7xl mx-auto animate-in fade-in duration-500">
             {activeTab === 'daily-sales' && <DailySales user={user} markets={markets.map(m => m.name)} />}
             {activeTab === 'sales-history' && <SalesHistory user={user} markets={markets.map(m => m.name)} users={users} />}
             {activeTab === 'inventory-reg' && <InventoryRegistration user={user} markets={markets.map(m => m.name)} />}
@@ -265,35 +276,24 @@ const App: React.FC = () => {
         </div>
       </main>
 
+      {/* Notifications Modal */}
       {isNotificationOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300" onClick={() => setIsNotificationOpen(false)}>
-          <div className="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95 duration-300" onClick={e => e.stopPropagation()}>
-            <div className="bg-rose-900 p-8 text-white flex justify-between items-center">
-              <div>
-                <h3 className="text-2xl font-black tracking-tight">صندوق الرسائل</h3>
-                <p className="text-rose-300 text-xs font-bold uppercase mt-1">Admin Communication Center</p>
-              </div>
-              <button onClick={() => setIsNotificationOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                <X size={28}/>
-              </button>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setIsNotificationOpen(false)}>
+          <div className="bg-white rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10" onClick={e => e.stopPropagation()}>
+            <div className="bg-rose-900 p-6 md:p-8 text-white flex justify-between items-center">
+              <h3 className="text-xl font-black">صندوق الرسائل</h3>
+              <button onClick={() => setIsNotificationOpen(false)} className="p-2 hover:bg-white/10 rounded-full"><X size={24}/></button>
             </div>
-            <div className="p-8 max-h-[60vh] overflow-y-auto space-y-6 custom-scrollbar bg-slate-50/50">
+            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4 bg-slate-50">
               {notifications.length === 0 ? (
-                <div className="text-center py-20"><Bell className="mx-auto text-gray-200 mb-4" size={60} /><p className="text-gray-400 font-bold">لا توجد رسائل جديدة</p></div>
+                <div className="text-center py-12 text-gray-300 font-bold">لا توجد رسائل جديدة</div>
               ) : (
                 notifications.map(n => (
-                  <div key={n.id} className="p-6 bg-white rounded-3xl border border-rose-100 shadow-sm relative group hover:shadow-md transition-all">
-                    <div className="flex items-start gap-4">
-                      <div className="w-10 h-10 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-600"><UserIcon size={20} /></div>
-                      <div className="flex-1">
-                        <p className="text-[15px] font-bold text-gray-800 leading-relaxed mb-4">{n.message}</p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-rose-300 font-black uppercase tracking-widest bg-rose-50 px-3 py-1 rounded-full">{new Date(n.timestamp).toLocaleString('ar-EG')}</span>
-                          <div className="flex gap-2">
-                            <button onClick={() => deleteNotification(n.id)} className="p-2.5 bg-slate-50 text-slate-400 hover:text-red-600 rounded-xl transition-all"><Trash2 size={16}/></button>
-                          </div>
-                        </div>
-                      </div>
+                  <div key={n.id} className="p-5 bg-white rounded-2xl border border-rose-100 shadow-sm">
+                    <p className="text-sm font-bold text-gray-800 mb-2">{n.message}</p>
+                    <div className="flex justify-between items-center text-[10px] text-rose-300 font-bold uppercase">
+                      <span>{new Date(n.timestamp).toLocaleString('ar-EG')}</span>
+                      <button onClick={() => deleteNotification(n.id)} className="text-red-400 hover:text-red-600"><Trash2 size={14}/></button>
                     </div>
                   </div>
                 ))
