@@ -34,7 +34,6 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
   const [editingPermissions, setEditingPermissions] = useState<string | null>(null);
   const [editingCredentials, setEditingCredentials] = useState<User | null>(null);
   const [editItem, setEditItem] = useState<{id: string, name: string, type: 'markets' | 'companies'} | null>(null);
-  const [newItemName, setNewItemName] = useState('');
   
   // Message Modal State
   const [messageTarget, setMessageTarget] = useState<User | null>(null);
@@ -93,6 +92,15 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
       name: editItem.name.trim()
     });
     setEditItem(null);
+    alert("تم التعديل بنجاح");
+  };
+
+  const togglePermission = async (userId: string, permissionKey: string) => {
+    const targetUser = users.find(u => u.id === userId);
+    if (!targetUser) return;
+    const currentPerms = targetUser.permissions || {};
+    const updatedPerms = { ...currentPerms, [permissionKey]: !currentPerms[permissionKey as keyof typeof currentPerms] };
+    await update(ref(db, `users/${userId}`), { permissions: updatedPerms });
   };
 
   const getRoleLabel = (role: string) => {
@@ -118,7 +126,6 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
 
   return (
     <div className="space-y-8 pb-20 px-2 md:px-0">
-      {/* Navigation Pills */}
       <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar">
         {[
           { id: 'general', label: 'عام', icon: <SettingsIcon size={18}/> },
@@ -176,7 +183,6 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
         </div>
       )}
 
-      {/* Rest of the settings tabs stay largely similar but with defensive user mapping */}
       {activeSubTab === 'users' && (
         <div className="space-y-8 animate-in fade-in">
           <div className="bg-white p-6 md:p-10 rounded-[2rem] border border-rose-50 shadow-sm">
@@ -236,7 +242,112 @@ const Settings: React.FC<Props> = ({ user, settings, users = [], markets = [], c
         </div>
       )}
 
-      {/* Item Edit Modal (Markets/Companies) */}
+      {activeSubTab === 'markets' && (
+        <div className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm border border-rose-50 animate-in fade-in">
+          <h3 className="text-xl font-black text-rose-900 mb-8 flex items-center gap-3"><Store className="text-rose-800" /> إدارة الماركتات</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {markets.map(m => (
+              <div key={m.id} className="p-4 bg-slate-50 rounded-2xl flex items-center justify-between border border-slate-100 group">
+                <span className="font-bold text-sm text-gray-700">{m.name}</span>
+                <div className="flex gap-2">
+                  <button onClick={() => setEditItem({id: m.id, name: m.name, type: 'markets'})} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><Edit size={16}/></button>
+                  <button onClick={() => handleDeleteItem(m.id, 'markets', m.name)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={16}/></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {activeSubTab === 'companies' && (
+        <div className="bg-white p-6 md:p-10 rounded-[2rem] shadow-sm border border-rose-50 animate-in fade-in">
+          <h3 className="text-xl font-black text-rose-900 mb-8 flex items-center gap-3"><Building2 className="text-rose-800" /> إدارة الشركات المنافسة</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {companies.map(c => (
+              <div key={c.id} className="p-4 bg-slate-50 rounded-2xl flex items-center justify-between border border-slate-100 group">
+                <span className="font-bold text-sm text-gray-700">{c.name}</span>
+                <div className="flex gap-2">
+                  <button onClick={() => setEditItem({id: c.id, name: c.name, type: 'companies'})} className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-all"><Edit size={16}/></button>
+                  <button onClick={() => handleDeleteItem(c.id, 'companies', c.name)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-all"><Trash2 size={16}/></button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Modals for actions */}
+      {messageTarget && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95">
+            <h4 className="text-xl font-black text-rose-900 mb-6">إرسال رسالة إلى {messageTarget.employeeName}</h4>
+            <textarea 
+              className="w-full bg-slate-50 p-4 rounded-xl font-bold outline-none border-2 border-transparent focus:border-rose-200 h-32 resize-none"
+              placeholder="اكتب رسالتك هنا..."
+              value={msgText}
+              onChange={e => setMsgText(e.target.value)}
+            />
+            <div className="flex gap-3 mt-8">
+              <button onClick={handleSendMessage} className="flex-1 bg-rose-800 text-white py-4 rounded-xl font-black">إرسال</button>
+              <button onClick={() => setMessageTarget(null)} className="flex-1 bg-slate-100 text-slate-500 py-4 rounded-xl font-black">إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingCredentials && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95">
+            <h4 className="text-xl font-black text-rose-900 mb-6 text-center">تحديث بيانات دخول {editingCredentials.employeeName}</h4>
+            <div className="space-y-4">
+              <input 
+                className="w-full bg-slate-50 p-4 rounded-xl font-bold outline-none border-2 border-transparent focus:border-rose-200" 
+                placeholder="اسم المستخدم الجديد" 
+                value={editingCredentials.username}
+                onChange={e => setEditingCredentials({...editingCredentials, username: e.target.value})}
+              />
+              <input 
+                type="password"
+                className="w-full bg-slate-50 p-4 rounded-xl font-bold outline-none border-2 border-transparent focus:border-rose-200" 
+                placeholder="كلمة المرور الجديدة"
+                value={editingCredentials.password}
+                onChange={e => setEditingCredentials({...editingCredentials, password: e.target.value})}
+              />
+            </div>
+            <div className="flex gap-3 mt-8">
+              <button onClick={handleUpdateCredentials} className="flex-1 bg-blue-600 text-white py-4 rounded-xl font-black">تحديث</button>
+              <button onClick={() => setEditingCredentials(null)} className="flex-1 bg-slate-100 text-slate-500 py-4 rounded-xl font-black">إلغاء</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingPermissions && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] p-8 max-w-lg w-full shadow-2xl animate-in zoom-in-95">
+            <h4 className="text-xl font-black text-rose-900 mb-6 border-b pb-4">تعديل صلاحيات الوصول</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {Object.entries(permissionLabels).map(([key, label]) => {
+                const targetUser = users.find(u => u.id === editingPermissions);
+                const isEnabled = targetUser?.permissions?.[key as keyof typeof targetUser.permissions];
+                return (
+                  <label key={key} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl cursor-pointer hover:bg-rose-50 transition-all">
+                    <span className="text-xs font-bold text-gray-700">{label}</span>
+                    <input 
+                      type="checkbox" 
+                      checked={!!isEnabled}
+                      onChange={() => togglePermission(editingPermissions, key)}
+                      className="w-5 h-5 accent-rose-800"
+                    />
+                  </label>
+                );
+              })}
+            </div>
+            <button onClick={() => setEditingPermissions(null)} className="w-full mt-8 bg-rose-800 text-white py-4 rounded-xl font-black">إغلاق وحفظ</button>
+          </div>
+        </div>
+      )}
+
       {editItem && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl animate-in zoom-in-95">
