@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Users, ShoppingCart, History, Package, ClipboardList, 
+  ShoppingCart, History, Package, ClipboardList, 
   TrendingUp, BarChart, Settings as SettingsIcon, 
   LogOut, Menu, X, Bell, MessageCircle, Calendar,
-  Loader2, Wifi, WifiOff, Palette, Copy, Trash2, User as UserIcon, Trophy
+  Loader2, Wifi, WifiOff, Palette, Trophy
 } from 'lucide-react';
-import { db, ref, onValue, set, update, push, remove } from './firebase';
+import { db, ref, onValue, update, remove } from './firebase';
 import { User, AppSettings, Notification, AppTheme, Market, Company, DailySale } from './types';
 
 // View Components
@@ -46,7 +46,10 @@ const App: React.FC = () => {
 
     onValue(ref(db, 'users'), (snapshot) => {
       const data = snapshot.val();
-      if (data) setUsers(Object.values(data));
+      if (data) {
+        const usersList = Object.entries(data).map(([id, val]: any) => ({ ...val, id: val.id || id }));
+        setUsers(usersList);
+      }
     });
 
     onValue(ref(db, 'sales'), (snapshot) => {
@@ -58,18 +61,19 @@ const App: React.FC = () => {
     setIsLoading(false);
   }, []);
 
-  // Star of the Month Calculation (Day 1 to End of Month)
   const starOfMonthInfo = useMemo(() => {
+    if (!sales.length) return null;
     const now = new Date();
     const currentMonthSales = sales.filter(s => {
+      if (!s.date) return false;
       const d = new Date(s.date);
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     });
 
     const userTotals: Record<string, {name: string, total: number}> = {};
     currentMonthSales.forEach(s => {
-      if (!userTotals[s.userId]) userTotals[s.userId] = { name: s.userName, total: 0 };
-      userTotals[s.userId].total += (s.total || 0);
+      if (!userTotals[s.userId]) userTotals[s.userId] = { name: s.userName || 'غير معروف', total: 0 };
+      userTotals[s.userId].total += (Number(s.total) || 0);
     });
 
     const sorted = Object.values(userTotals).sort((a, b) => b.total - a.total);
@@ -114,7 +118,6 @@ const App: React.FC = () => {
   }, [user]);
 
   const handleLogin = (loggedUser: User) => {
-    // Inject safety defaults for permissions and balance to prevent white screen crashes
     const safeUser = {
       ...loggedUser,
       permissions: loggedUser.permissions || {
@@ -169,9 +172,8 @@ const App: React.FC = () => {
   if (!user) return <Login onLogin={handleLogin} />;
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  // Safe permission checking
   const up = user.permissions || {};
+  
   const sidebarItems = [
     { id: 'daily-sales', label: 'المبيعات اليومية', icon: <ShoppingCart size={20}/>, visible: user.role === 'admin' || up.registerSales },
     { id: 'sales-history', label: 'سجل المبيعات', icon: <History size={20}/>, visible: user.role === 'admin' || up.viewSalesHistory },
@@ -183,19 +185,10 @@ const App: React.FC = () => {
     { id: 'settings', label: 'إعدادات النظام', icon: <SettingsIcon size={20}/>, visible: user.role === 'admin' || up.viewSettings },
   ].filter(i => i.visible);
 
-  const getRoleLabel = (role: string) => {
-    switch (role) {
-      case 'admin': return 'مدير';
-      case 'coordinator': return 'منسق';
-      case 'usher': return 'أشر';
-      default: return 'موظف';
-    }
-  };
-
   const constructedTickerText = useMemo(() => {
     let text = settings?.tickerText || '';
     if (settings?.showTopSalesInTicker && starOfMonthInfo) {
-      const topSalesMsg = `🏆 نجم الشهر الحالي: ${starOfMonthInfo.name} بمبيعات إجمالية ${starOfMonthInfo.total.toLocaleString()} ج.م 🏆`;
+      const topSalesMsg = `🏆 نجم الشهر الحالي: ${starOfMonthInfo.name} بمبيعات إجمالية ${(starOfMonthInfo.total || 0).toLocaleString()} ج.م 🏆`;
       text = topSalesMsg + (text ? ` | ${text}` : '');
     }
     return text;
@@ -204,14 +197,10 @@ const App: React.FC = () => {
   return (
     <div className={`flex h-screen overflow-hidden theme-${theme} transition-all duration-300 relative`}>
       {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm" 
-          onClick={() => setIsSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/60 z-40 md:hidden backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)}/>
       )}
 
-      {/* Sidebar Section */}
-      <aside className={`bg-rose-900 text-white w-72 flex-shrink-0 transition-all duration-300 z-50 fixed md:relative inset-y-0 ${isSidebarOpen ? 'right-0' : '-right-72 md:right-0'} ${theme === 'glass' ? 'bg-rose-900/70 backdrop-blur-xl border-l border-white/10' : ''} shadow-2xl`}>
+      <aside className={`bg-rose-900 text-white w-72 flex-shrink-0 transition-all duration-300 z-50 fixed md:relative inset-y-0 ${isSidebarOpen ? 'right-0' : '-right-72 md:right-0'} shadow-2xl`}>
         <div className="p-6 flex flex-col h-full">
           <div className="mb-8 flex items-center justify-between">
             <div className="flex flex-col">
@@ -221,40 +210,22 @@ const App: React.FC = () => {
             <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 hover:bg-white/10 rounded-full"><X size={20}/></button>
           </div>
           
-          <nav className="flex-1 space-y-1.5 overflow-y-auto custom-scrollbar pr-2">
+          <nav className="flex-1 space-y-1.5 overflow-y-auto custom-scrollbar">
             {sidebarItems.map(item => (
               <button
                 key={item.id}
                 onClick={() => { setActiveTab(item.id); setIsSidebarOpen(false); }}
-                className={`w-full flex items-center gap-4 px-5 py-4 rounded-xl transition-all duration-200 ${activeTab === item.id ? 'bg-white text-rose-900 font-bold shadow-xl shadow-black/10' : 'hover:bg-white/10 opacity-80 hover:opacity-100'}`}
+                className={`w-full flex items-center gap-4 px-5 py-4 rounded-xl transition-all duration-200 ${activeTab === item.id ? 'bg-white text-rose-900 font-bold shadow-xl' : 'hover:bg-white/10 opacity-80'}`}
               >
                 <span className={activeTab === item.id ? 'text-rose-600' : 'text-white'}>{item.icon}</span>
                 <span className="text-sm font-bold">{item.label}</span>
               </button>
             ))}
-
-            {user.role === 'admin' && (
-              <div className="mt-8 pt-6 border-t border-white/10">
-                <p className="text-[10px] uppercase text-rose-400 px-5 mb-4 font-black tracking-widest">الموظفون المتصلون</p>
-                <div className="space-y-2">
-                  {users.map(u => (
-                    <div key={u.id} className="flex items-center gap-3 px-5 py-1">
-                      <div className="relative">
-                        <div className={`w-2 h-2 rounded-full ${u.isOnline ? 'bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.8)]' : 'bg-rose-800'}`}></div>
-                      </div>
-                      <span className={`text-[11px] font-bold ${u.isOnline ? 'text-white' : 'text-rose-400/60'}`}>{u.employeeName}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
           </nav>
         </div>
       </aside>
 
-      <main className={`flex-1 flex flex-col min-w-0 overflow-hidden ${theme === 'dark' ? 'bg-[#0a0a0a]' : 'bg-[#F9FAFB]'}`}>
-        
-        {/* Ticker Section */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F9FAFB]">
         {constructedTickerText && (
           <div className="bg-rose-950 py-2 text-white text-[11px] md:text-[13px] overflow-hidden border-b border-rose-900/50 shadow-inner z-50">
             <div className="ticker-container">
@@ -265,47 +236,32 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Improved Header Section */}
-        <header className={`h-16 md:h-20 flex items-center justify-between px-3 md:px-8 border-b transition-all duration-300 z-30 ${theme === 'glass' ? 'bg-white/40 backdrop-blur-md border-white/20 shadow-sm' : 'bg-white shadow-sm'} ${theme === 'dark' ? 'bg-[#121212] border-[#222]' : ''}`}>
-          <div className="flex items-center gap-2 md:gap-4 flex-1 min-w-0">
+        <header className="h-16 md:h-20 flex items-center justify-between px-3 md:px-8 bg-white shadow-sm z-30">
+          <div className="flex items-center gap-2 md:gap-4 flex-1">
             <button onClick={() => setIsSidebarOpen(true)} className="md:hidden p-2 hover:bg-rose-50 rounded-xl transition-all">
               <Menu size={20} className="text-rose-800" />
             </button>
-            <div className="flex flex-col truncate">
-              <h2 className="font-black text-rose-900 text-sm md:text-xl tracking-tighter uppercase leading-tight truncate">
+            <div className="flex flex-col">
+              <h2 className="font-black text-rose-900 text-sm md:text-xl truncate">
                 {settings?.programName || 'Soft Rose Modern Trade'}
               </h2>
-              <div className="flex items-center gap-1 mt-0.5">
-                <span className="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest truncate">
-                  {user.employeeName} • {getRoleLabel(user.role)}
-                </span>
-              </div>
+              <span className="text-[9px] md:text-[10px] font-bold text-gray-400 uppercase tracking-widest truncate">
+                {user.employeeName}
+              </span>
             </div>
           </div>
 
           <div className="flex items-center gap-1 md:gap-2">
-            <div className="flex items-center bg-slate-100/70 p-1 rounded-xl md:rounded-2xl gap-0.5 md:gap-1 shadow-inner">
-              <button onClick={openWhatsApp} className="p-2 md:p-3 hover:bg-green-50 text-green-600 rounded-lg md:rounded-xl transition-all" title="واتساب">
-                <MessageCircle size={18} />
-              </button>
-
-              <button onClick={cycleTheme} className="p-2 md:p-3 hover:bg-white hover:shadow-md rounded-lg md:rounded-xl text-amber-500 transition-all" title="الاستايل">
-                <Palette size={18} />
-              </button>
-
-              <div className={`p-2 md:p-3 rounded-lg md:rounded-xl ${isOnline ? 'text-blue-600' : 'text-red-500'}`} title={isOnline ? 'متصل' : 'غير متصل'}>
-                {isOnline ? <Wifi size={18} /> : <WifiOff size={18} />}
-              </div>
-
-              <button onClick={() => setIsNotificationOpen(true)} className="relative p-2 md:p-3 hover:bg-rose-50 rounded-lg md:rounded-xl text-gray-500 transition-all" title="الإشعارات">
+            <div className="flex items-center bg-slate-100/70 p-1 rounded-xl gap-1">
+              <button onClick={openWhatsApp} className="p-2 md:p-3 text-green-600 hover:bg-white rounded-lg transition-all"><MessageCircle size={18} /></button>
+              <button onClick={cycleTheme} className="p-2 md:p-3 text-amber-500 hover:bg-white rounded-lg transition-all"><Palette size={18} /></button>
+              <div className={`p-2 md:p-3 rounded-lg ${isOnline ? 'text-blue-600' : 'text-red-500'}`}>{isOnline ? <Wifi size={18} /> : <WifiOff size={18} />}</div>
+              <button onClick={() => setIsNotificationOpen(true)} className="relative p-2 md:p-3 text-gray-500 hover:bg-white rounded-lg transition-all">
                 <Bell size={18} />
-                {unreadCount > 0 && (
-                  <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-600 border-2 border-white rounded-full"></span>
-                )}
+                {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-600 border-2 border-white rounded-full"></span>}
               </button>
             </div>
-
-            <button onClick={handleLogout} className="p-2 md:p-3 bg-rose-50 text-rose-800 rounded-xl md:rounded-2xl hover:bg-rose-100 transition-all font-bold text-[11px] md:text-sm border border-rose-100 ml-1">
+            <button onClick={handleLogout} className="p-2 md:p-3 bg-rose-50 text-rose-800 rounded-xl hover:bg-rose-100 transition-all font-bold text-[11px] md:text-sm border border-rose-100 ml-1">
               <LogOut size={18} className="md:hidden" />
               <span className="hidden md:inline">خروج</span>
             </button>
@@ -313,7 +269,7 @@ const App: React.FC = () => {
         </header>
 
         <div className="flex-1 overflow-y-auto p-3 md:p-8 custom-scrollbar">
-          <div className="max-w-7xl mx-auto animate-in fade-in duration-500">
+          <div className="max-w-7xl mx-auto">
             {activeTab === 'daily-sales' && <DailySales user={user} markets={markets.map(m => m.name)} />}
             {activeTab === 'sales-history' && <SalesHistory user={user} markets={markets.map(m => m.name)} users={users} />}
             {activeTab === 'inventory-reg' && <InventoryRegistration user={user} markets={markets.map(m => m.name)} />}
@@ -329,7 +285,7 @@ const App: React.FC = () => {
       {isNotificationOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setIsNotificationOpen(false)}>
           <div className="bg-white rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10" onClick={e => e.stopPropagation()}>
-            <div className="bg-rose-900 p-6 md:p-8 text-white flex justify-between items-center">
+            <div className="bg-rose-900 p-6 text-white flex justify-between items-center">
               <h3 className="text-xl font-black">صندوق الرسائل</h3>
               <button onClick={() => setIsNotificationOpen(false)} className="p-2 hover:bg-white/10 rounded-full"><X size={24}/></button>
             </div>
@@ -342,7 +298,6 @@ const App: React.FC = () => {
                     <p className="text-sm font-bold text-gray-800 mb-2">{n.message}</p>
                     <div className="flex justify-between items-center text-[10px] text-rose-300 font-bold uppercase">
                       <span>{new Date(n.timestamp).toLocaleString('ar-EG')}</span>
-                      <button onClick={() => deleteNotification(n.id)} className="text-red-400 hover:text-red-600"><Trash2 size={14}/></button>
                     </div>
                   </div>
                 ))
