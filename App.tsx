@@ -4,10 +4,10 @@ import {
   ShoppingCart, History, Package, ClipboardList, 
   TrendingUp, BarChart, Settings as SettingsIcon, 
   LogOut, Menu, X, Bell, MessageCircle, Calendar,
-  Loader2, Wifi, WifiOff, Palette, Trophy
+  Loader2, Wifi, WifiOff, Palette, Trophy, Sparkles
 } from 'lucide-react';
 import { db, ref, onValue, update, remove } from './firebase';
-import { User, AppSettings, Notification, AppTheme, Market, Company, DailySale } from './types';
+import { User, AppSettings, Notification, AppTheme, Market, Company, DailySale, InventoryRecord, Vacation } from './types';
 
 // View Components
 import DailySales from './views/DailySales';
@@ -19,15 +19,17 @@ import CompetitorReports from './views/CompetitorReports';
 import VacationManagement from './views/VacationManagement';
 import Settings from './views/Settings';
 import Login from './views/Login';
+import AIChatbot from './views/AIChatbot';
 
 const App: React.FC = () => {
-  // 1. All useState hooks at the top
   const [user, setUser] = useState<User | null>(null);
   const [activeTab, setActiveTab] = useState('daily-sales');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [users, setUsers] = useState<User[]>([]);
   const [sales, setSales] = useState<DailySale[]>([]);
+  const [inventory, setInventory] = useState<InventoryRecord[]>([]);
+  const [vacations, setVacations] = useState<Vacation[]>([]);
   const [markets, setMarkets] = useState<Market[]>([]);
   const [companies, setCompanies] = useState<Company[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -36,7 +38,6 @@ const App: React.FC = () => {
   const [theme, setTheme] = useState<AppTheme>('standard');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  // 2. All useEffect hooks
   useEffect(() => {
     window.addEventListener('online', () => setIsOnline(true));
     window.addEventListener('offline', () => setIsOnline(false));
@@ -58,6 +59,18 @@ const App: React.FC = () => {
       const data = snapshot.val();
       if (data) setSales(Object.values(data));
       else setSales([]);
+    });
+
+    onValue(ref(db, 'inventory'), (snapshot) => {
+      const data = snapshot.val();
+      if (data) setInventory(Object.values(data));
+      else setInventory([]);
+    });
+
+    onValue(ref(db, 'vacations'), (snapshot) => {
+      const data = snapshot.val();
+      if (data) setVacations(Object.values(data));
+      else setVacations([]);
     });
 
     setIsLoading(false);
@@ -96,7 +109,6 @@ const App: React.FC = () => {
     }
   }, [user]);
 
-  // 3. All useMemo hooks (Moved BEFORE early returns to fix Error 310)
   const starOfMonthInfo = useMemo(() => {
     if (!sales || sales.length === 0) return null;
     const now = new Date();
@@ -126,28 +138,8 @@ const App: React.FC = () => {
     return text;
   }, [settings, starOfMonthInfo]);
 
-  // 4. Handlers
   const handleLogin = (loggedUser: User) => {
-    // Ensuring safety defaults to fix the white screen issue permanently
-    const safeUser = {
-      ...loggedUser,
-      permissions: loggedUser.permissions || {
-        registerSales: true,
-        viewSalesHistory: true,
-        registerInventory: true,
-        viewInventoryHistory: true,
-        registerCompetitorPrices: true,
-        viewCompetitorReports: true,
-        viewVacationMgmt: true,
-        viewSettings: false,
-        viewColleaguesSales: false
-      },
-      vacationBalance: loggedUser.vacationBalance || { 
-        annual: 14, casual: 7, sick: 0, exams: 0, 
-        absent_with_permission: 0, absent_without_permission: 0 
-      }
-    };
-    setUser(safeUser);
+    setUser(loggedUser);
     if (loggedUser.id) {
       update(ref(db, `users/${loggedUser.id}`), { isOnline: true });
     }
@@ -160,48 +152,20 @@ const App: React.FC = () => {
     setUser(null);
   };
 
-  const cycleTheme = () => {
-    if (theme === 'standard') setTheme('glass');
-    else if (theme === 'glass') setTheme('dark');
-    else setTheme('standard');
-  };
-
-  const openWhatsApp = () => {
-    if (settings?.whatsappNumber) {
-      window.open(`https://wa.me/${settings.whatsappNumber}`, '_blank');
-    } else {
-      alert("رقم الواتساب غير مسجل في الإعدادات");
-    }
-  };
-
-  // 5. Early Returns (Only after all hooks)
-  if (isLoading) return (
-    <div className="h-screen flex flex-col items-center justify-center bg-rose-50">
-      <Loader2 className="animate-spin text-rose-600 mb-4" size={48}/>
-      <p className="text-rose-900 font-bold animate-pulse">جاري تحميل نظام Soft Rose...</p>
-    </div>
-  );
-
-  if (!user) return <Login onLogin={handleLogin} />;
-
-  // 6. UI Logic (Variables, not hooks)
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-  const up = user.permissions || {
-    registerSales: true, viewSalesHistory: true, registerInventory: true, 
-    viewInventoryHistory: true, registerCompetitorPrices: true, 
-    viewCompetitorReports: true, viewVacationMgmt: true, viewSettings: false, viewColleaguesSales: false
-  };
-  
   const sidebarItems = [
-    { id: 'daily-sales', label: 'المبيعات اليومية', icon: <ShoppingCart size={20}/>, visible: user.role === 'admin' || up.registerSales },
-    { id: 'sales-history', label: 'سجل المبيعات', icon: <History size={20}/>, visible: user.role === 'admin' || up.viewSalesHistory },
-    { id: 'inventory-reg', label: 'تسجيل المخزون', icon: <Package size={20}/>, visible: user.role === 'admin' || up.registerInventory },
-    { id: 'inventory-history', label: 'سجل المخزون', icon: <ClipboardList size={20}/>, visible: user.role === 'admin' || up.viewInventoryHistory },
-    { id: 'competitor-prices', label: 'أسعار المنافسين', icon: <TrendingUp size={20}/>, visible: user.role === 'admin' || up.registerCompetitorPrices },
-    { id: 'competitor-reports', label: 'تقارير المنافسين', icon: <BarChart size={20}/>, visible: user.role === 'admin' || up.viewCompetitorReports },
-    { id: 'vacation-mgmt', label: 'رصيد الاجازات', icon: <Calendar size={20}/>, visible: user.role === 'admin' || up.viewVacationMgmt },
-    { id: 'settings', label: 'إعدادات النظام', icon: <SettingsIcon size={20}/>, visible: user.role === 'admin' || up.viewSettings },
+    { id: 'daily-sales', label: 'المبيعات اليومية', icon: <ShoppingCart size={20}/>, visible: true },
+    { id: 'sales-history', label: 'سجل المبيعات', icon: <History size={20}/>, visible: true },
+    { id: 'inventory-reg', label: 'تسجيل المخزون', icon: <Package size={20}/>, visible: true },
+    { id: 'inventory-history', label: 'سجل المخزون', icon: <ClipboardList size={20}/>, visible: true },
+    { id: 'competitor-prices', label: 'أسعار المنافسين', icon: <TrendingUp size={20}/>, visible: true },
+    { id: 'competitor-reports', label: 'تقارير المنافسين', icon: <BarChart size={20}/>, visible: true },
+    { id: 'vacation-mgmt', label: 'رصيد الاجازات', icon: <Calendar size={20}/>, visible: true },
+    { id: 'ai-assistant', label: 'المساعد الذكي (AI)', icon: <Sparkles size={20} className="text-amber-400 animate-pulse" />, visible: true },
+    { id: 'settings', label: 'إعدادات النظام', icon: <SettingsIcon size={20}/>, visible: user?.role === 'admin' },
   ].filter(i => i.visible);
+
+  if (isLoading) return <div className="h-screen flex items-center justify-center bg-rose-50"><Loader2 className="animate-spin text-rose-600" size={48}/></div>;
+  if (!user) return <Login onLogin={handleLogin} />;
 
   return (
     <div className={`flex h-screen overflow-hidden theme-${theme} transition-all duration-300 relative`}>
@@ -262,17 +226,13 @@ const App: React.FC = () => {
 
           <div className="flex items-center gap-1 md:gap-2">
             <div className="flex items-center bg-slate-100/70 p-1 rounded-xl gap-1 shadow-inner">
-              <button onClick={openWhatsApp} className="p-2 md:p-3 text-green-600 hover:bg-white rounded-lg transition-all"><MessageCircle size={18} /></button>
-              <button onClick={cycleTheme} className="p-2 md:p-3 text-amber-500 hover:bg-white rounded-lg transition-all"><Palette size={18} /></button>
-              <div className={`p-2 md:p-3 rounded-lg ${isOnline ? 'text-blue-600' : 'text-red-500'}`}>{isOnline ? <Wifi size={18} /> : <WifiOff size={18} />}</div>
               <button onClick={() => setIsNotificationOpen(true)} className="relative p-2 md:p-3 text-gray-500 hover:bg-white rounded-lg transition-all">
                 <Bell size={18} />
-                {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-600 border-2 border-white rounded-full"></span>}
+                {notifications.filter(n => !n.isRead).length > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-600 border-2 border-white rounded-full"></span>}
               </button>
             </div>
-            <button onClick={handleLogout} className="p-2 md:p-3 bg-rose-50 text-rose-800 rounded-xl hover:bg-rose-100 transition-all font-bold text-[11px] md:text-sm border border-rose-100 ml-1">
-              <LogOut size={18} className="md:hidden" />
-              <span className="hidden md:inline">خروج</span>
+            <button onClick={handleLogout} className="p-2 md:p-3 bg-rose-50 text-rose-800 rounded-xl hover:bg-rose-100 transition-all font-bold">
+              <LogOut size={18} />
             </button>
           </div>
         </header>
@@ -287,34 +247,22 @@ const App: React.FC = () => {
             {activeTab === 'competitor-reports' && <CompetitorReports user={user} markets={markets.map(m => m.name)} />}
             {activeTab === 'vacation-mgmt' && <VacationManagement user={user} users={users} />}
             {activeTab === 'settings' && <Settings user={user} settings={settings} users={users} markets={markets} companies={companies} />}
+            {activeTab === 'ai-assistant' && (
+              <AIChatbot 
+                user={user} 
+                appData={{
+                  sales,
+                  inventory,
+                  vacations,
+                  users,
+                  markets,
+                  settings
+                }}
+              />
+            )}
           </div>
         </div>
       </main>
-
-      {isNotificationOpen && (
-        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setIsNotificationOpen(false)}>
-          <div className="bg-white rounded-[2rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in slide-in-from-bottom-10" onClick={e => e.stopPropagation()}>
-            <div className="bg-rose-900 p-6 text-white flex justify-between items-center">
-              <h3 className="text-xl font-black">صندوق الرسائل</h3>
-              <button onClick={() => setIsNotificationOpen(false)} className="p-2 hover:bg-white/10 rounded-full"><X size={24}/></button>
-            </div>
-            <div className="p-6 max-h-[60vh] overflow-y-auto space-y-4 bg-slate-50">
-              {notifications.length === 0 ? (
-                <div className="text-center py-12 text-gray-300 font-bold">لا توجد رسائل جديدة</div>
-              ) : (
-                notifications.map(n => (
-                  <div key={n.id} className="p-5 bg-white rounded-2xl border border-rose-100 shadow-sm">
-                    <p className="text-sm font-bold text-gray-800 mb-2">{n.message}</p>
-                    <div className="flex justify-between items-center text-[10px] text-rose-300 font-bold uppercase">
-                      <span>{new Date(n.timestamp).toLocaleString('ar-EG')}</span>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
