@@ -14,6 +14,8 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedDetails, setSelectedDetails] = useState<{ userId: string, type: string, userName: string } | null>(null);
   const [editingUserBalance, setEditingUserBalance] = useState<User | null>(null);
+  
+  // Logical State for Period Navigation
   const [currentPeriodDate, setCurrentPeriodDate] = useState(new Date());
   
   const [newVacation, setNewVacation] = useState({
@@ -77,27 +79,24 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
         }
       }
       await remove(ref(db, `vacations/${id}`));
-      // Close details if the deleted item was inside the currently viewed list
-      if (filteredDetails.length <= 1) setSelectedDetails(null);
     }
   };
 
-  const handleSaveBalanceEdit = async () => {
-    if (!editingUserBalance) return;
-    await update(ref(db, `users/${editingUserBalance.id}`), {
-      vacationBalance: editingUserBalance.vacationBalance
-    });
-    alert("تم تحديث الرصيد بنجاح");
-    setEditingUserBalance(null);
-  };
-
+  // Improved Logic for the 21st to 20th period
   const getPeriodRange = (baseDate: Date) => {
-    const year = baseDate.getFullYear();
-    const month = baseDate.getMonth();
-    // Start: 21st of previous month
-    const start = new Date(year, month - 1, 21);
-    // End: 20th of current month
-    const end = new Date(year, month, 20, 23, 59, 59);
+    const d = new Date(baseDate);
+    const day = d.getDate();
+    let start, end;
+    
+    if (day >= 21) {
+      // Current period starts 21st of this month to 20th of next month
+      start = new Date(d.getFullYear(), d.getMonth(), 21);
+      end = new Date(d.getFullYear(), d.getMonth() + 1, 20, 23, 59, 59);
+    } else {
+      // Current period starts 21st of last month to 20th of this month
+      start = new Date(d.getFullYear(), d.getMonth() - 1, 21);
+      end = new Date(d.getFullYear(), d.getMonth(), 20, 23, 59, 59);
+    }
     return { start, end };
   };
 
@@ -116,7 +115,6 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
     return users.filter(u => u.id === user.id);
   }, [user, users]);
 
-  // Logic for the Details Modal
   const filteredDetails = useMemo(() => {
     if (!selectedDetails) return [];
     return vacations.filter(v => {
@@ -153,7 +151,7 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
           <div className="flex items-center gap-4 bg-slate-50 p-2 rounded-2xl border border-slate-100 w-full md:w-auto">
             <button onClick={() => changePeriod('prev')} className="p-2 hover:bg-white rounded-xl text-rose-800 transition-all"><ChevronRight size={20}/></button>
             <div className="flex flex-col items-center px-4 min-w-[140px]">
-              <span className="text-[10px] font-black text-gray-400 uppercase">فترة الرواتب</span>
+              <span className="text-[10px] font-black text-gray-400 uppercase">فترة الرواتب الحالية</span>
               <span className="text-sm font-black text-rose-900">
                 {currentRange.start.toLocaleDateString('ar-EG', {day: '2-digit', month: '2-digit'})} - {currentRange.end.toLocaleDateString('ar-EG', {day: '2-digit', month: '2-digit'})}
               </span>
@@ -168,12 +166,12 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
             }}
             className="w-full md:w-auto bg-rose-800 text-white px-8 py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-rose-900 shadow-xl shadow-rose-100 font-black text-sm transition-all active:scale-95"
           >
-            <Plus size={20}/> تسجيل جديد
+            <Plus size={20}/> تسجيل إجازة
           </button>
         </div>
 
-        {/* Users List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+        {/* Users Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {visibleUsers.map(u => (
             <div key={u.id} className="bg-slate-50 p-6 rounded-[2rem] border border-slate-100 group hover:border-rose-200 transition-all relative">
               <div className="flex items-center justify-between mb-6">
@@ -181,7 +179,7 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
                   <div className="w-12 h-12 bg-white rounded-2xl flex items-center justify-center text-rose-900 shadow-sm border border-slate-100"><UserIcon size={24}/></div>
                   <div>
                     <p className="font-black text-rose-900">{u.employeeName}</p>
-                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{u.employeeCode || 'بدون كود'}</p>
+                    <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{u.employeeCode}</p>
                   </div>
                 </div>
                 {user.role === 'admin' && (
@@ -191,8 +189,8 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
 
               <div className="grid grid-cols-4 gap-2">
                 {[
-                  { label: 'سنوي', type: 'annual', balance: u.vacationBalance?.annual ?? 14, text: 'text-blue-600', light: 'bg-blue-50' },
-                  { label: 'عارضة', type: 'casual', balance: u.vacationBalance?.casual ?? 7, text: 'text-orange-500', light: 'bg-orange-50' },
+                  { label: 'سنوي', type: 'annual', balance: u.vacationBalance?.annual ?? 0, text: 'text-blue-600', light: 'bg-blue-50' },
+                  { label: 'عارضة', type: 'casual', balance: u.vacationBalance?.casual ?? 0, text: 'text-orange-500', light: 'bg-orange-50' },
                   { label: 'مرضي', type: 'sick', balance: u.vacationBalance?.sick ?? 0, text: 'text-red-500', light: 'bg-red-50' },
                   { label: 'بدون إذن', type: 'absent_without_permission', balance: u.vacationBalance?.absent_without_permission ?? 0, text: 'text-purple-600', light: 'bg-purple-50' }
                 ].map(box => (
@@ -203,27 +201,24 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
                   >
                     <span className={`text-[8px] font-black uppercase ${box.text} mb-1 tracking-tighter opacity-70`}>{box.label}</span>
                     <span className={`text-xl font-black ${box.text}`}>{box.balance}</span>
-                    <span className="text-[7px] font-bold text-gray-400 mt-1 opacity-0 group-hover/btn:opacity-100 transition-opacity">تفاصيل</span>
+                    <span className="text-[7px] font-bold text-gray-400 mt-1 opacity-0 group-hover/btn:opacity-100 transition-opacity">عرض السجل</span>
                   </button>
                 ))}
               </div>
             </div>
           ))}
-          {visibleUsers.length === 0 && (
-            <div className="col-span-full py-20 text-center text-gray-400 font-bold italic">لا توجد بيانات موظفين حالياً</div>
-          )}
         </div>
       </div>
 
-      {/* History Details Modal */}
+      {/* History Popup (The Details Modal) */}
       {selectedDetails && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4" onClick={() => setSelectedDetails(null)}>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4" onClick={() => setSelectedDetails(null)}>
           <div className="bg-white rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
             <div className="bg-rose-900 p-6 text-white flex justify-between items-center">
               <div className="flex items-center gap-3">
                 <div className="p-2 bg-white/10 rounded-xl"><History size={20}/></div>
                 <div>
-                  <h3 className="text-lg font-black leading-tight">سجل إجازات {getTypeNameAr(selectedDetails.type)}</h3>
+                  <h3 className="text-lg font-black">سجل إجازات {getTypeNameAr(selectedDetails.type)}</h3>
                   <p className="text-[10px] font-bold text-rose-300 opacity-80 uppercase tracking-widest">{selectedDetails.userName}</p>
                 </div>
               </div>
@@ -231,35 +226,26 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
             </div>
             
             <div className="p-6 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
-              <div className="text-[10px] font-black text-gray-400 uppercase flex items-center gap-2">
-                <ListFilter size={14}/> الفترة: {currentRange.start.toLocaleDateString('ar-EG', {day: 'numeric', month: 'short'})} إلى {currentRange.end.toLocaleDateString('ar-EG', {day: 'numeric', month: 'short'})}
+              <div className="text-[10px] font-black text-gray-400 uppercase">
+                الفترة: {currentRange.start.toLocaleDateString('ar-EG')} - {currentRange.end.toLocaleDateString('ar-EG')}
               </div>
-              <div className="px-4 py-1.5 bg-rose-100 text-rose-800 rounded-full text-xs font-black">إجمالي: {totalDaysInPeriod} يوم</div>
+              <div className="px-4 py-1 bg-rose-100 text-rose-800 rounded-full text-xs font-black">المجموع: {totalDaysInPeriod} يوم</div>
             </div>
 
-            <div className="max-h-[50vh] overflow-y-auto p-6 space-y-3 custom-scrollbar">
+            <div className="max-h-[45vh] overflow-y-auto p-6 space-y-3 custom-scrollbar">
               {filteredDetails.length === 0 ? (
-                <div className="text-center py-10">
-                  <Clock className="mx-auto text-gray-200 mb-2" size={40}/>
-                  <p className="text-sm font-bold text-gray-400">لا توجد إجازات مسجلة في هذه الفترة</p>
-                </div>
+                <div className="text-center py-10 opacity-40 italic font-bold text-gray-400">لا توجد سجلات لهذه الفترة</div>
               ) : (
                 filteredDetails.map(v => (
                   <div key={v.id} className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm flex justify-between items-center group">
-                    <div className="flex items-center gap-4">
-                      <div className="text-center bg-slate-50 px-3 py-1 rounded-xl">
-                         <span className="block text-[10px] font-black text-gray-400">{new Date(v.date).toLocaleDateString('ar-EG', {month: 'short'})}</span>
-                         <span className="block text-lg font-black text-rose-900 leading-none">{new Date(v.date).getDate()}</span>
-                      </div>
-                      <div className="flex flex-col">
-                        <span className="text-xs font-black text-gray-800">إجازة لمدة {v.days} يوم</span>
-                        <span className="text-[10px] font-bold text-gray-400 italic">سجلت في: {new Date(v.createdAt).toLocaleDateString('ar-EG')}</span>
-                      </div>
+                    <div>
+                      <span className="block text-xs font-black text-gray-800">{new Date(v.date).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                      <span className="block text-[10px] font-bold text-gray-400 italic">المدة: {v.days} يوم</span>
                     </div>
                     {user.role === 'admin' && (
                       <button 
                         onClick={() => handleDeleteVacation(v.id)} 
-                        className="p-2 text-red-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                        className="p-2 text-red-300 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                       >
                         <Trash2 size={16}/>
                       </button>
@@ -269,20 +255,18 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
               )}
             </div>
             
-            <div className="p-6 bg-white flex justify-center">
-               <button onClick={() => setSelectedDetails(null)} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm shadow-xl shadow-slate-200 hover:bg-black transition-all">إغلاق السجل</button>
+            <div className="p-6 bg-white border-t border-slate-50">
+               <button onClick={() => setSelectedDetails(null)} className="w-full bg-slate-900 text-white py-4 rounded-2xl font-black text-sm hover:bg-black transition-all">إغلاق النافذة</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Editing Balance Modal (Admin Only) */}
+      {/* Editing Balance Modal */}
       {editingUserBalance && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
-          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95">
-            <h3 className="text-xl font-black text-rose-900 mb-6 border-b pb-4 flex items-center gap-2">
-              <Edit size={20}/> تعديل أرصدة {editingUserBalance.employeeName}
-            </h3>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
+          <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl">
+            <h3 className="text-xl font-black text-rose-900 mb-6 border-b pb-4">تحديث أرصدة {editingUserBalance.employeeName}</h3>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-[10px] font-black text-gray-400 uppercase mr-1 mb-2">سنوي</label>
@@ -300,41 +284,29 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
                   onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...(editingUserBalance.vacationBalance || {}), casual: Number(e.target.value)} as any})}
                 />
               </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mr-1 mb-2">مرضي</label>
-                <input 
-                  type="number" className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200"
-                  value={editingUserBalance.vacationBalance?.sick}
-                  onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...(editingUserBalance.vacationBalance || {}), sick: Number(e.target.value)} as any})}
-                />
-              </div>
-              <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase mr-1 mb-2">بدون إذن</label>
-                <input 
-                  type="number" className="w-full bg-slate-50 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200"
-                  value={editingUserBalance.vacationBalance?.absent_without_permission}
-                  onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...(editingUserBalance.vacationBalance || {}), absent_without_permission: Number(e.target.value)} as any})}
-                />
-              </div>
             </div>
             <div className="flex gap-4 mt-8">
-              <button onClick={handleSaveBalanceEdit} className="flex-1 bg-rose-800 text-white py-4 rounded-xl font-black shadow-lg shadow-rose-100 hover:bg-rose-900 transition-all">حفظ التعديلات</button>
+              <button onClick={() => {
+                update(ref(db, `users/${editingUserBalance.id}`), { vacationBalance: editingUserBalance.vacationBalance });
+                setEditingUserBalance(null);
+                alert("تم تحديث الرصيد بنجاح");
+              }} className="flex-1 bg-rose-800 text-white py-4 rounded-xl font-black">حفظ التعديلات</button>
               <button onClick={() => setEditingUserBalance(null)} className="flex-1 bg-slate-100 text-slate-500 py-4 rounded-xl font-black">إلغاء</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Register New Vacation Modal */}
+      {/* Registration Modal */}
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[200] flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[2000] flex items-center justify-center p-4">
           <div className="bg-white rounded-[2.5rem] w-full max-w-md p-8 shadow-2xl animate-in zoom-in-95">
             <h3 className="text-2xl font-black text-rose-900 mb-8 flex items-center gap-3">
               <Plus className="text-rose-700"/> تسجيل إجازة
             </h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 mr-1">الموظف</label>
+                <label className="block text-[10px] font-black text-gray-400 uppercase mb-2 mr-1">الموظف</label>
                 <select 
                   className={`w-full bg-slate-100 rounded-xl p-4 font-bold outline-none border-2 border-transparent focus:border-rose-200 ${user.role !== 'admin' ? 'opacity-60 cursor-not-allowed' : ''}`}
                   value={user.role === 'admin' ? newVacation.targetUserId : user.id}
@@ -383,7 +355,7 @@ const VacationManagement: React.FC<Props> = ({ user, users }) => {
               </div>
             </div>
             <div className="flex gap-4 mt-10">
-              <button onClick={handleAddVacation} className="flex-1 bg-rose-800 text-white py-4 rounded-xl font-black shadow-lg shadow-rose-100 hover:bg-rose-900 transition-all">تأكيد التسجيل</button>
+              <button onClick={handleAddVacation} className="flex-1 bg-rose-800 text-white py-4 rounded-xl font-black">تأكيد</button>
               <button onClick={() => setIsModalOpen(false)} className="flex-1 bg-slate-100 text-slate-500 py-4 rounded-xl font-black">إلغاء</button>
             </div>
           </div>
