@@ -37,6 +37,7 @@ const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [theme, setTheme] = useState<AppTheme>('standard');
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [isAIChatOpen, setIsAIChatOpen] = useState(false);
 
   useEffect(() => {
     window.addEventListener('online', () => setIsOnline(true));
@@ -160,7 +161,6 @@ const App: React.FC = () => {
     { id: 'competitor-prices', label: 'أسعار المنافسين', icon: <TrendingUp size={20}/>, visible: true },
     { id: 'competitor-reports', label: 'تقارير المنافسين', icon: <BarChart size={20}/>, visible: true },
     { id: 'vacation-mgmt', label: 'رصيد الاجازات', icon: <Calendar size={20}/>, visible: true },
-    { id: 'ai-assistant', label: 'المساعد الذكي (AI)', icon: <Sparkles size={20} className="text-amber-400 animate-pulse" />, visible: true },
     { id: 'settings', label: 'إعدادات النظام', icon: <SettingsIcon size={20}/>, visible: user?.role === 'admin' },
   ].filter(i => i.visible);
 
@@ -198,7 +198,7 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-[#F9FAFB]">
+      <main className="flex-1 flex flex-col min-0 overflow-hidden bg-[#F9FAFB] relative">
         {constructedTickerText && (
           <div className="bg-rose-950 py-2 text-white text-[11px] md:text-[13px] overflow-hidden border-b border-rose-900/50 shadow-inner z-50">
             <div className="ticker-container">
@@ -247,9 +247,16 @@ const App: React.FC = () => {
             {activeTab === 'competitor-reports' && <CompetitorReports user={user} markets={markets.map(m => m.name)} />}
             {activeTab === 'vacation-mgmt' && <VacationManagement user={user} users={users} />}
             {activeTab === 'settings' && <Settings user={user} settings={settings} users={users} markets={markets} companies={companies} />}
-            {activeTab === 'ai-assistant' && (
+          </div>
+        </div>
+
+        {/* Floating AI Bot Button and Window */}
+        <div className="fixed bottom-6 left-6 z-[1000] flex flex-col items-start gap-4 pointer-events-none">
+          {isAIChatOpen && (
+            <div className="w-[90vw] md:w-[400px] h-[500px] pointer-events-auto animate-in slide-in-from-bottom-5">
               <AIChatbot 
                 user={user} 
+                onClose={() => setIsAIChatOpen(false)}
                 appData={{
                   sales,
                   inventory,
@@ -259,8 +266,14 @@ const App: React.FC = () => {
                   settings
                 }}
               />
-            )}
-          </div>
+            </div>
+          )}
+          <button 
+            onClick={() => setIsAIChatOpen(!isAIChatOpen)}
+            className={`w-16 h-16 rounded-full bg-rose-800 text-white flex items-center justify-center shadow-2xl shadow-rose-900/40 pointer-events-auto transition-all hover:scale-110 active:scale-95 ${isAIChatOpen ? 'bg-rose-950 rotate-90' : 'animate-bounce'}`}
+          >
+            {isAIChatOpen ? <X size={28}/> : <Sparkles size={28} className="text-amber-400"/>}
+          </button>
         </div>
       </main>
     </div>

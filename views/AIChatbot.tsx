@@ -2,10 +2,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { GoogleGenAI } from "@google/genai";
 import { User, DailySale, InventoryRecord, Vacation, Market, AppSettings } from '../types';
-import { Send, Bot, User as UserIcon, Loader2, Sparkles, MessageSquare, Trash2 } from 'lucide-react';
+import { Send, Bot, User as UserIcon, Loader2, Sparkles, MessageSquare, Trash2, X } from 'lucide-react';
 
 interface Props {
   user: User;
+  onClose: () => void;
   appData: {
     sales: DailySale[];
     inventory: InventoryRecord[];
@@ -21,7 +22,7 @@ interface ChatMessage {
   text: string;
 }
 
-const AIChatbot: React.FC<Props> = ({ user, appData }) => {
+const AIChatbot: React.FC<Props> = ({ user, appData, onClose }) => {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -32,12 +33,10 @@ const AIChatbot: React.FC<Props> = ({ user, appData }) => {
   }, [messages]);
 
   const generateDataSummary = () => {
-    // Creating a clean text summary of the app data to feed the AI
     const totalSales = appData.sales.reduce((acc, s) => acc + (Number(s.total) || 0), 0);
     const marketsCount = appData.markets.length;
     const usersCount = appData.users.length;
     
-    // Top salesperson of all time in the record
     const userPerformance: Record<string, number> = {};
     appData.sales.forEach(s => {
       userPerformance[s.userName] = (userPerformance[s.userName] || 0) + Number(s.total);
@@ -46,16 +45,14 @@ const AIChatbot: React.FC<Props> = ({ user, appData }) => {
     const topPerformer = sortedPerformers[0] ? `${sortedPerformers[0][0]} بمبيعات ${sortedPerformers[0][1].toLocaleString()}` : 'لا يوجد';
 
     return `
-      إليك ملخص بيانات نظام Soft Rose Modern Trade الحالي:
+      إليك ملخص بيانات نظام Soft Rose Modern Trade الحالي (مأخوذ مباشرة من قاعدة البيانات):
       - اسم البرنامج: ${appData.settings?.programName || 'Soft Rose'}
       - عدد الموظفين المسجلين: ${usersCount}
-      - عدد الماركتات المتعاقد معها: ${marketsCount}
-      - إجمالي مبيعات البرنامج المسجلة: ${totalSales.toLocaleString()} ج.م
-      - أفضل موظف مبيعات (تاريخياً): ${topPerformer}
-      - قائمة الموظفين: ${appData.users.map(u => u.employeeName).join(', ')}
-      - قائمة الماركتات: ${appData.markets.map(m => m.name).join(', ')}
-      - عدد سجلات المخزون: ${appData.inventory.length}
-      - عدد طلبات الإجازات: ${appData.vacations.length}
+      - عدد الماركتات: ${marketsCount}
+      - إجمالي المبيعات الكلية المسجلة: ${totalSales.toLocaleString()} ج.م
+      - المتصدر حالياً: ${topPerformer}
+      - الموظفون: ${appData.users.map(u => u.employeeName).join(', ')}
+      - الماركتات: ${appData.markets.map(m => m.name).join(', ')}
     `;
   };
 
@@ -70,19 +67,18 @@ const AIChatbot: React.FC<Props> = ({ user, appData }) => {
     try {
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
       const systemInstruction = `
-        أنت المساعد الذكي الرسمي لنظام "Soft Rose Modern Trade".
-        اسمك "روزي". أنت خبير في تحليل بيانات المبيعات والمخزون والإجازات الخاصة بالشركة.
-        تحدث دائماً باللغة العربية بأسلوب احترافي وودي.
-        لديك صلاحية الوصول لبيانات البرنامج الحالية المرفقة في سياق الرسالة.
-        أجب على أسئلة المستخدم بناءً على البيانات المتوفرة فقط. إذا سألك عن شيء غير موجود، أخبره بلطف أنك لا تملك هذه البيانات حالياً.
-        بيانات المستخدم الحالي: ${user.employeeName}، وظيفته: ${user.role}.
-        ${generateDataSummary()}
+        أنت المساعد الذكي "روزي" لنظام Soft Rose. خبير في تحليل البيانات وتقديم الدعم الفوري.
+        تحدث بالعربية بأسلوب مهذب ومختصر.
+        صلاحياتك: تحليل المبيعات، المخزون، والإجازات.
+        لديك وصول كامل لبيانات النظام اللحظية المرفقة أدناه.
+        بيانات النظام الآن: ${generateDataSummary()}
+        المستخدم الحالي هو: ${user.employeeName} (${user.role}).
       `;
 
       const response = await ai.models.generateContent({
         model: 'gemini-3-flash-preview',
         contents: [
-          { role: 'user', parts: [{ text: `تعليمات النظام: ${systemInstruction}` }] },
+          { role: 'user', parts: [{ text: `التعليمات: ${systemInstruction}` }] },
           ...messages.map(m => ({
             role: m.role,
             parts: [{ text: m.text }]
@@ -91,94 +87,74 @@ const AIChatbot: React.FC<Props> = ({ user, appData }) => {
         ],
       });
 
-      const aiText = response.text || "عذراً، لم أستطع معالجة طلبك حالياً.";
+      const aiText = response.text || "عذراً، لم أستطع الرد حالياً.";
       setMessages(prev => [...prev, { role: 'model', text: aiText }]);
     } catch (error) {
-      console.error("AI Error:", error);
-      setMessages(prev => [...prev, { role: 'model', text: "حدث خطأ في الاتصال بخوادم الذكاء الاصطناعي. يرجى المحاولة لاحقاً." }]);
+      setMessages(prev => [...prev, { role: 'model', text: "خطأ في الاتصال. يرجى المحاولة لاحقاً." }]);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-180px)] bg-white rounded-[2.5rem] shadow-xl border border-rose-50 overflow-hidden animate-in fade-in duration-500">
+    <div className="flex flex-col h-full bg-white rounded-[2.5rem] shadow-2xl border border-rose-100 overflow-hidden flex flex-col" dir="rtl">
       {/* Header */}
-      <div className="bg-rose-900 p-6 text-white flex justify-between items-center shadow-lg">
-        <div className="flex items-center gap-4">
-          <div className="p-3 bg-white/10 rounded-2xl backdrop-blur-md">
-            <Sparkles className="text-amber-400" size={24}/>
+      <div className="bg-rose-900 p-4 text-white flex justify-between items-center shadow-lg shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="p-2 bg-white/10 rounded-xl">
+            <Sparkles className="text-amber-400" size={18}/>
           </div>
           <div>
-            <h3 className="text-xl font-black">مساعد روزي الذكي</h3>
-            <p className="text-[10px] font-bold text-rose-300 uppercase tracking-widest opacity-80">Soft Rose AI Assistant</p>
+            <h3 className="text-sm font-black">روزي - المساعد الذكي</h3>
+            <p className="text-[8px] font-bold text-rose-300 uppercase tracking-widest opacity-80">AI Assistant</p>
           </div>
         </div>
-        <button 
-          onClick={() => setMessages([])} 
-          className="p-2 hover:bg-white/10 rounded-xl transition-all"
-          title="مسح المحادثة"
-        >
-          <Trash2 size={20}/>
-        </button>
+        <div className="flex gap-1">
+          <button onClick={() => setMessages([])} className="p-2 hover:bg-white/10 rounded-lg transition-all"><Trash2 size={16}/></button>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-all"><X size={16}/></button>
+        </div>
       </div>
 
-      {/* Messages Area */}
-      <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-slate-50/50 custom-scrollbar">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50 custom-scrollbar">
         {messages.length === 0 && (
-          <div className="h-full flex flex-col items-center justify-center text-center space-y-6 opacity-40">
-            <div className="p-8 bg-rose-50 rounded-[3rem]">
-              <MessageSquare size={64} className="text-rose-200" />
+          <div className="h-full flex flex-col items-center justify-center text-center space-y-4 opacity-50">
+            <div className="p-6 bg-rose-50 rounded-[2rem]">
+              <MessageSquare size={48} className="text-rose-200" />
             </div>
-            <div>
-              <p className="text-xl font-black text-rose-900">أهلاً بك في المساعد الذكي</p>
-              <p className="text-sm font-bold text-gray-500 mt-2 max-w-xs mx-auto">
-                يمكنك سؤالي عن مبيعات الشهر، أفضل الموظفين، أو حالة المخزون في الماركتات المختلفة.
-              </p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-w-md w-full px-4">
-              {["من هو أفضل موظف مبيعات؟", "كم إجمالي المبيعات الكلية؟"].map((q, i) => (
-                <button 
-                  key={i} 
-                  onClick={() => { setInput(q); }}
-                  className="bg-white border border-rose-100 p-3 rounded-2xl text-xs font-bold text-rose-800 hover:bg-rose-900 hover:text-white transition-all shadow-sm"
-                >
-                  {q}
-                </button>
-              ))}
-            </div>
+            <p className="text-xs font-black text-rose-900 px-10">أهلاً {user.employeeName}! كيف يمكنني مساعدتك في بيانات Soft Rose اليوم؟</p>
           </div>
         )}
 
         {messages.map((m, idx) => (
-          <div key={idx} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'} animate-in slide-in-from-bottom-2`}>
-            <div className={`flex gap-3 max-w-[85%] md:max-w-[70%] ${m.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
-              <div className={`w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 shadow-sm ${m.role === 'user' ? 'bg-rose-800 text-white' : 'bg-white text-rose-900 border border-rose-100'}`}>
-                {m.role === 'user' ? <UserIcon size={16}/> : <Bot size={16}/>}
+          <div key={idx} className={`flex ${m.role === 'user' ? 'justify-start' : 'justify-end'}`}>
+            <div className={`flex gap-2 max-w-[85%] ${m.role === 'user' ? 'flex-row' : 'flex-row-reverse'}`}>
+              <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 shadow-sm ${m.role === 'user' ? 'bg-rose-800 text-white' : 'bg-white text-rose-900 border border-rose-100'}`}>
+                {m.role === 'user' ? <UserIcon size={14}/> : <Bot size={14}/>}
               </div>
-              <div className={`p-4 rounded-[1.5rem] font-bold text-sm leading-relaxed shadow-sm ${m.role === 'user' ? 'bg-rose-800 text-white rounded-tr-none' : 'bg-white text-gray-800 border border-slate-100 rounded-tl-none'}`}>
+              <div className={`p-3 rounded-2xl font-bold text-xs leading-relaxed shadow-sm ${m.role === 'user' ? 'bg-rose-800 text-white rounded-tr-none' : 'bg-white text-gray-800 border border-slate-100 rounded-tl-none'}`}>
                 {m.text}
               </div>
             </div>
           </div>
         ))}
         {isLoading && (
-          <div className="flex justify-start animate-pulse">
-            <div className="flex gap-3 items-center bg-white p-4 rounded-[1.5rem] border border-slate-100 shadow-sm">
-              <Loader2 className="animate-spin text-rose-600" size={16}/>
-              <span className="text-xs font-black text-gray-400 tracking-widest uppercase">جاري التفكير والتحليل...</span>
+          <div className="flex justify-end animate-pulse">
+            <div className="flex gap-2 items-center bg-white p-3 rounded-2xl border border-slate-100 shadow-sm">
+              <Loader2 className="animate-spin text-rose-600" size={14}/>
+              <span className="text-[10px] font-black text-gray-400">جاري التحليل...</span>
             </div>
           </div>
         )}
         <div ref={chatEndRef} />
       </div>
 
-      {/* Input Area */}
-      <div className="p-6 bg-white border-t border-rose-50">
+      {/* Input */}
+      <div className="p-4 bg-white border-t border-rose-50 shrink-0">
         <div className="relative group">
           <input 
-            className="w-full bg-slate-50 rounded-[2rem] py-5 px-8 pr-16 outline-none font-bold text-gray-700 border-2 border-transparent focus:border-rose-200 focus:bg-white transition-all shadow-inner"
-            placeholder="اسألني أي شيء عن البرنامج..."
+            className="w-full bg-slate-50 rounded-2xl py-4 px-12 pr-6 outline-none font-bold text-xs text-gray-700 border-2 border-transparent focus:border-rose-200 focus:bg-white transition-all shadow-inner"
+            placeholder="اسألني عن المبيعات أو الموظفين..."
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
@@ -186,9 +162,9 @@ const AIChatbot: React.FC<Props> = ({ user, appData }) => {
           <button 
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            className="absolute left-3 top-1/2 -translate-y-1/2 p-3 bg-rose-800 text-white rounded-full hover:bg-rose-900 disabled:opacity-30 transition-all shadow-xl active:scale-90"
+            className="absolute left-2 top-1/2 -translate-y-1/2 p-2.5 bg-rose-800 text-white rounded-xl hover:bg-rose-900 disabled:opacity-30 transition-all shadow-lg active:scale-90"
           >
-            <Send size={20} className="transform rotate-180" />
+            <Send size={16} className="transform" />
           </button>
         </div>
       </div>
