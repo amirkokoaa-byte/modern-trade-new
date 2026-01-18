@@ -79,8 +79,6 @@ const App: React.FC = () => {
       if (data) {
         const list = Object.entries(data).map(([id, val]: any) => ({ ...val, id }));
         setVacations(list);
-      } else {
-        setVacations([]);
       }
     });
 
@@ -109,29 +107,6 @@ const App: React.FC = () => {
       });
     }
   }, [user]);
-
-  const starOfMonthInfo = useMemo(() => {
-    if (!sales || sales.length === 0) return null;
-    const now = new Date();
-    const currentMonthSales = sales.filter(s => {
-      const d = new Date(s.date);
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    });
-    const userTotals: Record<string, {name: string, total: number}> = {};
-    currentMonthSales.forEach(s => {
-      if (!userTotals[s.userId]) userTotals[s.userId] = { name: s.userName, total: 0 };
-      userTotals[s.userId].total += (Number(s.total) || 0);
-    });
-    return Object.values(userTotals).sort((a, b) => b.total - a.total)[0] || null;
-  }, [sales]);
-
-  const tickerText = useMemo(() => {
-    let text = settings?.tickerText || '';
-    if (settings?.showTopSalesInTicker && starOfMonthInfo) {
-      text = `🏆 نجم الشهر: ${starOfMonthInfo.name} بمبيعات ${starOfMonthInfo.total.toLocaleString()} ج.م 🏆 | ` + text;
-    }
-    return text;
-  }, [settings, starOfMonthInfo]);
 
   const unreadCount = useMemo(() => {
     if (!user) return 0;
@@ -183,13 +158,12 @@ const App: React.FC = () => {
 
   return (
     <div className={`flex h-screen overflow-hidden relative bg-transparent text-white ${currentTheme}-theme`}>
+      {/* Sidebar Overlay */}
       {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/60 z-[60] backdrop-blur-md transition-all duration-300" 
-          onClick={() => setIsSidebarOpen(false)}
-        />
+        <div className="fixed inset-0 bg-black/60 z-[60] backdrop-blur-md" onClick={() => setIsSidebarOpen(false)}/>
       )}
 
+      {/* Glass Sidebar */}
       <aside className={`glass-sidebar-inner text-white w-72 flex-shrink-0 transition-all duration-500 z-[70] fixed md:absolute md:relative inset-y-0 ${isSidebarOpen ? 'right-0' : '-right-72 md:-right-72'} shadow-2xl`}>
         <div className="p-8 flex flex-col h-full">
           <div className="mb-12 flex items-center justify-between">
@@ -223,17 +197,11 @@ const App: React.FC = () => {
         </div>
       </aside>
 
-      <main 
-        className="flex-1 flex flex-col min-w-0 overflow-hidden"
-        onClick={() => {
-          if(isSidebarOpen) setIsSidebarOpen(false);
-          if(isNotifDropdownOpen) setIsNotifDropdownOpen(false);
-        }}
-      >
-        {tickerText && (
-          <div className="bg-rose-950/40 backdrop-blur-md py-2.5 text-rose-100 text-[11px] font-black overflow-hidden z-[50] border-b border-white/5 ticker-container">
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden">
+        {settings?.tickerText && (
+          <div className="bg-rose-950/40 backdrop-blur-md py-2 text-rose-100 text-[11px] font-black overflow-hidden z-[50] border-b border-white/5 ticker-container">
             <div className={settings?.isTickerAnimated ? "animate-ticker" : "px-8"}>
-              {tickerText} &nbsp;&nbsp; • &nbsp;&nbsp; {tickerText}
+              {settings.tickerText} &nbsp;&nbsp; • &nbsp;&nbsp; {settings.tickerText}
             </div>
           </div>
         )}
@@ -250,37 +218,29 @@ const App: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Header Icons Ordered: Logout, Bell, Palette, Phone */}
             <button 
               onClick={handleLogout} 
-              className="p-2.5 bg-white/5 text-rose-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all"
+              className="p-2.5 bg-white/5 text-rose-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
               title="تسجيل الخروج"
             >
               <LogOut size={20} />
-            </button>
-
-            {/* AI Assistant Toggle Button */}
-            <button 
-              onClick={(e) => { e.stopPropagation(); setIsAIChatOpen(!isAIChatOpen); }}
-              className="p-2.5 bg-white/5 text-amber-300 rounded-xl hover:bg-amber-500 hover:text-white transition-all"
-              title="مساعدة الذكاء الاصطناعي"
-            >
-              <Sparkles size={20} />
             </button>
             
             <div className="relative">
               <button 
                 onClick={(e) => { e.stopPropagation(); setIsNotifDropdownOpen(!isNotifDropdownOpen); }}
-                className="p-2.5 bg-white/5 text-amber-400 rounded-xl hover:bg-amber-500 hover:text-white transition-all relative"
+                className="p-2.5 bg-white/5 text-amber-400 rounded-xl hover:bg-amber-500 hover:text-white transition-all relative shadow-sm"
                 title="الإشعارات"
               >
                 <Bell size={20} />
-                {unreadCount > 0 && <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-600 rounded-full border border-slate-900 animate-pulse"></div>}
+                {unreadCount > 0 && <div className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-600 rounded-full border-2 border-slate-900 animate-pulse"></div>}
               </button>
               
               {isNotifDropdownOpen && (
                 <div className="absolute left-0 mt-4 w-72 glass-card-dark rounded-2xl overflow-hidden shadow-2xl z-[100] animate-in fade-in slide-in-from-top-2" onClick={e => e.stopPropagation()}>
-                  <div className="p-4 bg-white/5 border-b border-white/10 flex justify-between items-center">
-                    <span className="text-xs font-black text-right">مركز التنبيهات</span>
+                  <div className="p-4 bg-white/5 border-b border-white/10">
+                    <span className="text-xs font-black text-right block">مركز التنبيهات</span>
                   </div>
                   <div className="max-h-64 overflow-y-auto custom-scrollbar">
                     {userNotifications.length === 0 ? (
@@ -294,7 +254,7 @@ const App: React.FC = () => {
                             setIsNotifDropdownOpen(false);
                             update(ref(db, `notifications/${n.id}`), { isRead: true });
                           }}
-                          className={`w-full p-4 text-right hover:bg-white/5 transition-all border-b border-white/5 flex gap-3 items-start ${!n.isRead ? 'bg-rose-600/5' : ''}`}
+                          className={`w-full p-4 text-right hover:bg-white/5 transition-all border-b border-white/5 flex gap-3 items-start ${!n.isRead ? 'bg-rose-600/10' : ''}`}
                         >
                           <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${!n.isRead ? 'bg-rose-500' : 'bg-transparent'}`}></div>
                           <p className={`text-xs ${!n.isRead ? 'font-black text-white' : 'font-medium text-white/60'} line-clamp-2`}>{n.message}</p>
@@ -306,19 +266,11 @@ const App: React.FC = () => {
               )}
             </div>
 
-            <button 
-              onClick={toggleTheme}
-              className="p-2.5 bg-white/5 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all"
-              title="تغيير الاستايل"
-            >
+            <button onClick={toggleTheme} className="p-2.5 bg-white/5 text-blue-400 rounded-xl hover:bg-blue-500 transition-all shadow-sm" title="تغيير الاستايل">
               <Palette size={20} />
             </button>
 
-            <button 
-              onClick={openWhatsApp}
-              className="p-2.5 bg-white/5 text-green-400 rounded-xl hover:bg-green-500 hover:text-white transition-all"
-              title="تواصل واتساب"
-            >
+            <button onClick={openWhatsApp} className="p-2.5 bg-white/5 text-green-400 rounded-xl hover:bg-green-500 transition-all shadow-sm" title="تواصل واتساب">
               <Phone size={20} />
             </button>
           </div>
@@ -338,17 +290,6 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
-
-        {/* Floating AI Chatbot View */}
-        {isAIChatOpen && (
-          <div className="fixed bottom-6 left-6 w-[90%] md:w-96 h-[600px] z-[500] animate-in slide-in-from-bottom-10" onClick={e => e.stopPropagation()}>
-            <AIChatbot 
-              user={user} 
-              onClose={() => setIsAIChatOpen(false)} 
-              appData={{ sales, inventory, vacations, users, markets, settings }} 
-            />
-          </div>
-        )}
 
         {selectedNotif && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[2000] flex items-center justify-center p-4">

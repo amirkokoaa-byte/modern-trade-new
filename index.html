@@ -10,10 +10,8 @@
     <style>
       body {
         font-family: 'Cairo', sans-serif;
-        background: #020617;
         margin: 0;
         overflow-x: hidden;
-        color: white;
         transition: all 0.5s ease;
       }
 
@@ -28,23 +26,23 @@
         animation: move 25s infinite alternate ease-in-out;
       }
 
-      /* Theme Definitions */
-      body.blob-rose { background-color: #020617; }
+      /* Themes definition */
+      body.blob-rose { background: #020617; color: white; }
       .blob-rose .blob-1 { background: #881337; top: -200px; right: -200px; }
       .blob-rose .blob-2 { background: #4c1d95; bottom: -200px; left: -200px; }
       .blob-rose .blob-3 { background: #db2777; top: 30%; left: 20%; }
 
-      body.blob-dark { background-color: #000000; }
+      body.blob-dark { background: #000000; color: white; }
       .blob-dark .blob-1 { background: #1e293b; top: -200px; right: -200px; opacity: 0.2; }
       .blob-dark .blob-2 { background: #0f172a; bottom: -200px; left: -200px; opacity: 0.2; }
       .blob-dark .blob-3 { background: #334155; top: 30%; left: 20%; opacity: 0.1; }
 
-      body.blob-purple { background-color: #0a0118; }
+      body.blob-purple { background: #0a0118; color: white; }
       .blob-purple .blob-1 { background: #581c87; top: -200px; right: -200px; }
       .blob-purple .blob-2 { background: #7e22ce; bottom: -200px; left: -200px; }
       .blob-purple .blob-3 { background: #a855f7; top: 30%; left: 20%; }
 
-      body.blob-emerald { background-color: #010a05; }
+      body.blob-emerald { background: #010a05; color: white; }
       .blob-emerald .blob-1 { background: #064e3b; top: -200px; right: -200px; }
       .blob-emerald .blob-2 { background: #065f46; bottom: -200px; left: -200px; }
       .blob-emerald .blob-3 { background: #059669; top: 30%; left: 20%; }
@@ -67,27 +65,37 @@
         color: white !important;
       }
 
+      @keyframes ticker-scroll {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
+      }
+      .animate-ticker {
+        display: inline-block;
+        white-space: nowrap;
+        animation: ticker-scroll 30s linear infinite;
+      }
+      .ticker-container {
+        width: 100%;
+        overflow: hidden;
+        white-space: nowrap;
+      }
       .custom-scrollbar::-webkit-scrollbar { width: 4px; }
       .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
-      
-      @keyframes ticker-scroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
-      .animate-ticker { display: inline-block; white-space: nowrap; animation: ticker-scroll 45s linear infinite; }
-      .ticker-container { width: 100%; overflow: hidden; white-space: nowrap; }
     </style>
-  <script type="importmap">
-{
-  "imports": {
-    "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
-    "react/": "https://esm.sh/react@^19.2.3/",
-    "react": "https://esm.sh/react@^19.2.3",
-    "firebase/": "https://esm.sh/firebase@^12.7.0/",
-    "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
-    "xlsx": "https://esm.sh/xlsx@^0.18.5",
-    "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
-  }
-}
-</script>
-</head>
+    <script type="importmap">
+    {
+      "imports": {
+        "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+        "react/": "https://esm.sh/react@^19.2.3/",
+        "react": "https://esm.sh/react@^19.2.3",
+        "firebase/": "https://esm.sh/firebase@^12.7.0/",
+        "lucide-react": "https://esm.sh/lucide-react@^0.562.0",
+        "xlsx": "https://esm.sh/xlsx@^0.18.5",
+        "@google/genai": "https://esm.sh/@google/genai@^1.34.0"
+      }
+    }
+    </script>
+  </head>
   <body class="blob-rose">
     <div class="bg-blob blob-1"></div>
     <div class="bg-blob blob-2"></div>
