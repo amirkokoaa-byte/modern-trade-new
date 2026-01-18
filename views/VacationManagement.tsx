@@ -15,7 +15,6 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
   const [selectedDetails, setSelectedDetails] = useState<{ userId: string, type: string, userName: string } | null>(null);
   const [editingUserBalance, setEditingUserBalance] = useState<User | null>(null);
   const [editingVacation, setEditingVacation] = useState<Vacation | null>(null);
-  
   const [currentPeriodDate, setCurrentPeriodDate] = useState(new Date());
   
   const [newVacation, setNewVacation] = useState({
@@ -25,13 +24,17 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
     targetUserId: user.id
   });
 
+  const sortedVacations = useMemo(() => {
+    return [...vacations].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  }, [vacations]);
+
   const handleAddVacation = async () => {
     const targetUserId = user.role === 'admin' ? newVacation.targetUserId : user.id;
     
     // Duplicate check
     const isDuplicate = vacations.some(v => v.userId === targetUserId && v.date === newVacation.date && v.id !== (editingVacation?.id || ''));
     if (isDuplicate) {
-      alert("تم تسجيل اليوم من قبل لهذا الموظف");
+      alert("⚠️ تم تسجيل هذا اليوم من قبل لهذا الموظف");
       return;
     }
 
@@ -39,7 +42,7 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
     const up = targetUser.vacationBalance || { annual: 14, casual: 7, sick: 0, exams: 0, absent_with_permission: 0, absent_without_permission: 0 };
     let updatedBalance = { ...up };
     
-    // Reverse previous balance if editing
+    // 1. Refund previous balance if editing
     if (editingVacation) {
         if (editingVacation.type === 'annual') updatedBalance.annual += Number(editingVacation.days);
         else if (editingVacation.type === 'casual') updatedBalance.casual += Number(editingVacation.days);
@@ -47,7 +50,7 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
         else if (editingVacation.type === 'absent_without_permission') updatedBalance.absent_without_permission = (updatedBalance.absent_without_permission || 0) - Number(editingVacation.days);
     }
 
-    // Apply new balance
+    // 2. Apply new deduction
     if (newVacation.type === 'annual') updatedBalance.annual -= newVacation.days;
     else if (newVacation.type === 'casual') updatedBalance.casual -= newVacation.days;
     else if (newVacation.type === 'absent_with_permission') updatedBalance.absent_with_permission = (updatedBalance.absent_with_permission || 0) - newVacation.days;
@@ -68,11 +71,11 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
     
     setIsModalOpen(false);
     setEditingVacation(null);
-    alert(editingVacation ? "تم التحديث بنجاح" : "تم تسجيل الإجازة بنجاح");
+    alert(editingVacation ? "✅ تم تحديث الإجازة بنجاح" : "✅ تم تسجيل الإجازة بنجاح");
   };
 
   const handleDeleteVacation = async (id: string) => {
-    if (window.confirm("⚠️ هل أنت متأكد من حذف هذا السجل؟ سيتم إعادة الأيام للرصيد.")) {
+    if (window.confirm("⚠️ هل أنت متأكد من حذف هذا السجل؟ سيتم إعادة الأيام للرصيد فوراً.")) {
       const vToDelete = vacations.find(v => v.id === id);
       if (vToDelete) {
         const targetUser = users.find(u => u.id === vToDelete.userId);
@@ -92,12 +95,6 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
     }
   };
 
-  const handleDeleteUser = (id: string, name: string) => {
-    if (window.confirm(`⚠️ هل أنت متأكد من حذف الموظف "${name}" نهائياً من النظام؟`)) {
-      remove(ref(db, `users/${id}`));
-    }
-  };
-
   const getPeriodRange = (baseDate: Date) => {
     const d = new Date(baseDate);
     const day = d.getDate();
@@ -114,13 +111,6 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
 
   const currentRange = useMemo(() => getPeriodRange(currentPeriodDate), [currentPeriodDate]);
 
-  const changePeriod = (direction: 'prev' | 'next') => {
-    const newDate = new Date(currentPeriodDate);
-    if (direction === 'prev') newDate.setMonth(newDate.getMonth() - 1);
-    else newDate.setMonth(newDate.getMonth() + 1);
-    setCurrentPeriodDate(newDate);
-  };
-
   const visibleUsers = useMemo(() => {
     if (!users) return [];
     if (user.role === 'admin') return users;
@@ -129,11 +119,11 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
 
   const filteredDetails = useMemo(() => {
     if (!selectedDetails) return [];
-    return vacations.filter(v => {
+    return sortedVacations.filter(v => {
       const vDate = new Date(v.date);
       return v.type === selectedDetails.type && v.userId === selectedDetails.userId && vDate >= currentRange.start && vDate <= currentRange.end;
     });
-  }, [selectedDetails, vacations, currentRange]);
+  }, [selectedDetails, sortedVacations, currentRange]);
 
   const totalDaysInPeriod = useMemo(() => filteredDetails.reduce((sum, v) => sum + Number(v.days || 0), 0), [filteredDetails]);
 
@@ -155,7 +145,7 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
           </div>
           <button 
             onClick={() => { setIsModalOpen(true); setEditingVacation(null); setNewVacation({ date: new Date().toISOString().split('T')[0], days: 1, type: 'annual', targetUserId: user.id }); }}
-            className="w-full md:w-auto bg-rose-600 text-white px-8 py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-rose-500 shadow-xl font-black text-sm transition-all"
+            className="w-full md:w-auto bg-rose-600 text-white px-8 py-4 rounded-2xl flex items-center justify-center gap-2 hover:bg-rose-50 shadow-xl font-black text-sm transition-all active:scale-95"
           >
             <Plus size={20}/> تسجيل إجازة
           </button>
@@ -175,7 +165,7 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
                 {user.role === 'admin' && (
                   <div className="flex gap-2">
                     <button onClick={() => setEditingUserBalance(u)} className="p-2 bg-blue-500/10 text-blue-400 rounded-xl hover:bg-blue-600 hover:text-white transition-all"><Edit size={16}/></button>
-                    <button onClick={() => handleDeleteUser(u.id, u.employeeName)} className="p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all"><Trash2 size={16}/></button>
+                    <button onClick={() => { if(window.confirm(`حذف الموظف ${u.employeeName}؟`)) remove(ref(db, `users/${u.id}`)); }} className="p-2 bg-red-500/10 text-red-500 rounded-xl hover:bg-red-600 hover:text-white transition-all"><Trash2 size={16}/></button>
                   </div>
                 )}
               </div>
@@ -217,11 +207,19 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
             
             <div className="p-4 bg-white/5 border-b border-white/5 flex justify-between items-center">
               <div className="flex items-center gap-2">
-                <button onClick={() => changePeriod('prev')} className="p-1.5 hover:bg-white/10 rounded-lg text-rose-400"><ChevronRight size={16}/></button>
+                <button onClick={() => {
+                  const d = new Date(currentPeriodDate);
+                  d.setMonth(d.getMonth() - 1);
+                  setCurrentPeriodDate(d);
+                }} className="p-1.5 hover:bg-white/10 rounded-lg text-rose-400"><ChevronRight size={16}/></button>
                 <span className="text-[10px] font-black text-white/50 uppercase">
                   {currentRange.start.toLocaleDateString('ar-EG', {month: 'long', year: 'numeric'})}
                 </span>
-                <button onClick={() => changePeriod('next')} className="p-1.5 hover:bg-white/10 rounded-lg text-rose-400"><ChevronLeft size={16}/></button>
+                <button onClick={() => {
+                  const d = new Date(currentPeriodDate);
+                  d.setMonth(d.getMonth() + 1);
+                  setCurrentPeriodDate(d);
+                }} className="p-1.5 hover:bg-white/10 rounded-lg text-rose-400"><ChevronLeft size={16}/></button>
               </div>
               <div className="px-4 py-1.5 bg-rose-600 text-white rounded-full text-[11px] font-black">المجموع: {totalDaysInPeriod}</div>
             </div>
@@ -236,7 +234,7 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
                       <span className="block text-xs font-black text-white">{new Date(v.date).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
                       <span className="block text-[10px] font-bold text-rose-400/60 italic mt-1">المدة: {v.days} يوم</span>
                     </div>
-                    {user.role === 'admin' && (
+                    {user.role === 'admin' && v.type !== 'annual' && (
                       <div className="flex gap-2">
                         <button 
                           onClick={() => {
@@ -311,7 +309,7 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
               </div>
             </div>
             <div className="flex gap-4 mt-10">
-              <button onClick={handleAddVacation} className="flex-1 bg-rose-600 text-white py-4 rounded-xl font-black shadow-lg flex items-center justify-center gap-2">
+              <button onClick={handleAddVacation} className="flex-1 bg-rose-600 text-white py-4 rounded-xl font-black shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95">
                 <Save size={18}/> {editingVacation ? 'تحديث' : 'تأكيد'}
               </button>
               <button onClick={() => { setIsModalOpen(false); setEditingVacation(null); }} className="flex-1 bg-white/5 text-white/40 py-4 rounded-xl font-black">إلغاء</button>

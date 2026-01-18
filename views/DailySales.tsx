@@ -16,26 +16,22 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
   const [isAddMarketModalOpen, setIsAddMarketModalOpen] = useState(false);
   const [newMarketName, setNewMarketName] = useState('');
 
-  // Fixed products logic: they appear when market is selected
+  // Initial products logic: load automatically on mount
   useEffect(() => {
-    if (selectedMarket) {
-      const allItems: SaleItem[] = [];
-      Object.entries(PRODUCT_GROUPS).forEach(([cat, products]) => {
-        products.forEach(p => {
-          allItems.push({
-            id: `${cat}-${p}-${Date.now()}-${Math.random()}`,
-            category: cat,
-            productName: p,
-            price: 0,
-            quantity: 0
-          });
+    const allItems: SaleItem[] = [];
+    Object.entries(PRODUCT_GROUPS).forEach(([cat, products]) => {
+      products.forEach(p => {
+        allItems.push({
+          id: `${cat}-${p}-${Date.now()}-${Math.random()}`,
+          category: cat,
+          productName: p,
+          price: 0,
+          quantity: 0
         });
       });
-      setItems(allItems);
-    } else {
-      setItems([]); // Clear screen when no market is selected
-    }
-  }, [selectedMarket]);
+    });
+    setItems(allItems);
+  }, []);
 
   const updateItem = (id: string, field: keyof SaleItem, value: any) => {
     setItems(items.map(item => item.id === id ? { ...item, [field]: value } : item));
@@ -82,7 +78,20 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
       
       // Full screen reset after success
       setSelectedMarket(''); 
-      setItems([]);
+      // Re-initialize items
+      const resetItems: SaleItem[] = [];
+      Object.entries(PRODUCT_GROUPS).forEach(([cat, products]) => {
+        products.forEach(p => {
+          resetItems.push({
+            id: `${cat}-${p}-${Date.now()}-${Math.random()}`,
+            category: cat,
+            productName: p,
+            price: 0,
+            quantity: 0
+          });
+        });
+      });
+      setItems(resetItems);
     } catch (e) {
       alert("خطأ في الاتصال بالشبكة");
     }
@@ -99,9 +108,8 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
   };
 
   return (
-    <div className="max-w-7xl mx-auto pb-20">
+    <div className="max-w-7xl mx-auto pb-20" dir="rtl">
       <div className="space-y-8">
-        {/* Total Summary Header */}
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 p-8 md:p-12 rounded-[2.5rem] bg-gradient-to-br from-rose-900/60 to-rose-700/20 backdrop-blur-3xl border border-white/10 shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/20 blur-[80px]"></div>
           <div className="flex items-center gap-5 relative z-10">
@@ -118,7 +126,6 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
           </div>
         </div>
         
-        {/* Branch Selection */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-6 bg-white/5 rounded-[2rem] border border-white/5 backdrop-blur-xl">
           <div className="md:col-span-3">
             <label className="block text-[10px] font-black text-rose-400 uppercase tracking-widest mb-3 mr-2">اختيار الماركت الحالي</label>
@@ -139,85 +146,69 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
           </button>
         </div>
 
-        {selectedMarket && (
-          <div className="space-y-12 animate-in fade-in duration-500">
-            {['facial', 'kitchen', 'hotel_toilet', 'dolphin'].map(cat => (
-              <div key={cat} className="space-y-4">
-                <div className="flex items-center gap-3 px-2">
-                  <div className="w-2 h-6 bg-rose-500 rounded-full"></div>
-                  <h3 className="text-sm font-black text-rose-100 uppercase tracking-wide">{getCategoryLabel(cat)}</h3>
+        <div className="space-y-12 animate-in fade-in duration-500">
+          {['facial', 'kitchen', 'hotel_toilet', 'dolphin'].map(cat => (
+            <div key={cat} className="space-y-4">
+              <div className="flex items-center gap-3 px-2">
+                <div className="w-2 h-6 bg-rose-500 rounded-full"></div>
+                <h3 className="text-sm font-black text-rose-100 uppercase tracking-wide">{getCategoryLabel(cat)}</h3>
+              </div>
+              <div className="space-y-2">
+                <div className="grid grid-cols-[2fr,1fr,1fr,1.2fr] gap-4 px-6 py-2 text-[10px] font-black text-white/30 uppercase tracking-widest">
+                  <span>اسم الصنف</span>
+                  <span className="text-center">السعر</span>
+                  <span className="text-center">العدد</span>
+                  <span className="text-center">الإجمالي</span>
                 </div>
-                
-                <div className="space-y-2">
-                  <div className="grid grid-cols-[2fr,1fr,1fr,1.2fr] gap-4 px-6 py-2 text-[10px] font-black text-white/30 uppercase tracking-widest">
-                    <span>اسم الصنف</span>
-                    <span className="text-center">السعر</span>
-                    <span className="text-center">العدد</span>
-                    <span className="text-center">الإجمالي</span>
-                  </div>
-
-                  {items.filter(i => i.category === cat).map(item => (
-                    <div key={item.id} className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl hover:bg-white/[0.05] hover:border-rose-500/30 transition-all group">
-                      <div className="grid grid-cols-[2fr,1fr,1fr,1.2fr] gap-4 items-center">
-                        <div className="font-bold text-white text-sm">
-                          {item.id.includes('manual') ? (
-                            <input 
-                              placeholder="اسم المنتج..."
-                              className="w-full bg-transparent border-b border-white/10 focus:border-rose-500 outline-none p-1 text-sm font-bold text-rose-200"
-                              value={item.productName}
-                              onChange={(e) => updateItem(item.id, 'productName', e.target.value)}
-                            />
-                          ) : item.productName}
-                        </div>
-                        <input 
-                          type="number" placeholder="0" 
-                          className="w-full glass-input-dark rounded-xl p-3 text-center font-bold text-rose-400 outline-none text-sm"
-                          value={item.price || ''} onChange={(e) => updateItem(item.id, 'price', e.target.value)}
-                        />
-                        <input 
-                          type="number" placeholder="0" 
-                          className={`w-full rounded-xl p-3 text-center font-black outline-none text-sm transition-all border ${item.quantity > 0 ? 'bg-rose-600 border-rose-400 text-white shadow-[0_0_15px_rgba(225,29,72,0.3)]' : 'bg-white/5 border-white/10 text-white/40'}`}
-                          value={item.quantity || ''} onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
-                        />
-                        <div className="bg-white/5 rounded-xl p-3 text-center font-black text-rose-100/80 text-sm border border-white/5">
-                          {(Number(item.price || 0) * Number(item.quantity || 0)).toLocaleString()}
-                          <span className="text-[9px] opacity-40 mr-1">ج.م</span>
-                        </div>
+                {items.filter(i => i.category === cat).map(item => (
+                  <div key={item.id} className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl hover:bg-white/[0.05] hover:border-rose-500/30 transition-all group">
+                    <div className="grid grid-cols-[2fr,1fr,1fr,1.2fr] gap-4 items-center">
+                      <div className="font-bold text-white text-sm">
+                        {item.id.includes('manual') ? (
+                          <input 
+                            placeholder="اسم المنتج..."
+                            className="w-full bg-transparent border-b border-white/10 focus:border-rose-500 outline-none p-1 text-sm font-bold text-rose-200"
+                            value={item.productName}
+                            onChange={(e) => updateItem(item.id, 'productName', e.target.value)}
+                          />
+                        ) : item.productName}
+                      </div>
+                      <input 
+                        type="number" placeholder="0" 
+                        className="w-full glass-input-dark rounded-xl p-3 text-center font-bold text-rose-400 outline-none text-sm"
+                        value={item.price || ''} onChange={(e) => updateItem(item.id, 'price', e.target.value)}
+                      />
+                      <input 
+                        type="number" placeholder="0" 
+                        className={`w-full rounded-xl p-3 text-center font-black outline-none text-sm transition-all border ${item.quantity > 0 ? 'bg-rose-600 border-rose-400 text-white shadow-[0_0_15px_rgba(225,29,72,0.3)]' : 'bg-white/5 border-white/10 text-white/40'}`}
+                        value={item.quantity || ''} onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
+                      />
+                      <div className="bg-white/5 rounded-xl p-3 text-center font-black text-rose-100/80 text-sm border border-white/5">
+                        {(Number(item.price || 0) * Number(item.quantity || 0)).toLocaleString()}
+                        <span className="text-[9px] opacity-40 mr-1">ج.م</span>
                       </div>
                     </div>
-                  ))}
-
-                  <button 
-                    onClick={() => addItemManual(cat)}
-                    className="w-full py-4 border border-dashed border-white/10 rounded-2xl text-white/30 font-black text-[11px] flex items-center justify-center gap-2 hover:bg-white/5 hover:text-rose-400 hover:border-rose-500/30 transition-all"
-                  >
-                    <PlusCircle size={16}/> إضافة منتج يدوي لقسم {getCategoryLabel(cat)}
-                  </button>
-                </div>
+                  </div>
+                ))}
+                <button 
+                  onClick={() => addItemManual(cat)}
+                  className="w-full py-4 border border-dashed border-white/10 rounded-2xl text-white/30 font-black text-[11px] flex items-center justify-center gap-2 hover:bg-white/5 hover:text-rose-400 hover:border-rose-500/30 transition-all"
+                >
+                  <PlusCircle size={16}/> إضافة منتج يدوي لقسم {getCategoryLabel(cat)}
+                </button>
               </div>
-            ))}
-
-            <button 
-              onClick={handleSave}
-              className="w-full py-6 bg-rose-600 text-white rounded-[2rem] font-black text-xl flex items-center justify-center gap-4 hover:bg-rose-500 transition-all shadow-2xl active:scale-[0.98] group relative overflow-hidden"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]"></div>
-              <Save size={28}/> 
-              <span>ترحيل وحفظ البيانات النهائية</span>
-            </button>
-          </div>
-        )}
-
-        {!selectedMarket && (
-          <div className="py-32 text-center">
-            <div className="w-24 h-24 bg-white/5 rounded-[2.5rem] flex items-center justify-center mx-auto mb-8 border border-white/10 text-rose-500/20">
-              <ShoppingBag size={48} />
             </div>
-            <p className="text-white/30 font-black text-lg">يرجى اختيار ماركت لبدء تسجيل المبيعات اليومية</p>
-          </div>
-        )}
+          ))}
+          <button 
+            onClick={handleSave}
+            className="w-full py-6 bg-rose-600 text-white rounded-[2rem] font-black text-xl flex items-center justify-center gap-4 hover:bg-rose-500 transition-all shadow-2xl active:scale-[0.98] group relative overflow-hidden"
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]"></div>
+            <Save size={28}/> 
+            <span>ترحيل وحفظ البيانات النهائية</span>
+          </button>
+        </div>
       </div>
-
       {isAddMarketModalOpen && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[1000] flex items-center justify-center p-4">
           <div className="glass-card-dark p-8 md:p-12 rounded-[3rem] max-w-md w-full animate-in zoom-in-95">

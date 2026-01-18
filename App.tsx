@@ -37,8 +37,21 @@ const App: React.FC = () => {
   const [isAIChatOpen, setIsAIChatOpen] = useState(false);
   const [isNotifDropdownOpen, setIsNotifDropdownOpen] = useState(false);
   const [selectedNotif, setSelectedNotif] = useState<Notification | null>(null);
+  const [currentTheme, setCurrentTheme] = useState<'rose' | 'dark' | 'purple' | 'emerald'>('rose');
 
   const notifRef = useRef<HTMLDivElement>(null);
+
+  // Theme Config
+  const themes = {
+    rose: 'blob-rose',
+    dark: 'blob-dark',
+    purple: 'blob-purple',
+    emerald: 'blob-emerald'
+  };
+
+  useEffect(() => {
+    document.body.className = themes[currentTheme];
+  }, [currentTheme]);
 
   // Monthly Reset Logic for "Absent without Permission"
   useEffect(() => {
@@ -85,7 +98,10 @@ const App: React.FC = () => {
 
     onValue(ref(db, 'vacations'), (snapshot) => {
       const data = snapshot.val();
-      if (data) setVacations(Object.values(data));
+      if (data) {
+        const list = Object.entries(data).map(([id, val]: any) => ({ ...val, id }));
+        setVacations(list);
+      }
     });
 
     onValue(ref(db, 'notifications'), (snapshot) => {
@@ -165,6 +181,12 @@ const App: React.FC = () => {
     }
   };
 
+  const toggleTheme = () => {
+    const themeOrder: Array<'rose' | 'dark' | 'purple' | 'emerald'> = ['rose', 'dark', 'purple', 'emerald'];
+    const nextIdx = (themeOrder.indexOf(currentTheme) + 1) % themeOrder.length;
+    setCurrentTheme(themeOrder[nextIdx]);
+  };
+
   const deleteNotification = async (id: string) => {
     await remove(ref(db, `notifications/${id}`));
     if (selectedNotif?.id === id) setSelectedNotif(null);
@@ -185,7 +207,7 @@ const App: React.FC = () => {
   if (!user) return <Login onLogin={handleLogin} />;
 
   return (
-    <div className="flex h-screen overflow-hidden relative bg-transparent text-white">
+    <div className={`flex h-screen overflow-hidden relative bg-transparent text-white ${currentTheme}-theme`}>
       {/* Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -247,34 +269,35 @@ const App: React.FC = () => {
           <div className="flex items-center gap-4">
             <button 
               onClick={(e) => { e.stopPropagation(); setIsSidebarOpen(!isSidebarOpen); }} 
-              className="p-2.5 bg-white/5 text-white rounded-xl hover:bg-white/10 transition-all active:scale-95"
+              className="p-2.5 bg-white/5 text-white rounded-xl hover:bg-white/10 transition-all active:scale-95 flex items-center gap-3"
             >
               <Menu size={22} />
+              <span className="hidden md:block font-black text-xs text-white/80">{user.employeeName}</span>
             </button>
-            <h2 className="font-black text-white text-lg tracking-tight">
+            <h2 className="font-black text-white text-lg tracking-tight hidden sm:block">
               {settings?.programName || 'Soft Rose Modern Trade'}
             </h2>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-4">
-            {/* Top Navigation Buttons */}
-            <div className="flex items-center gap-1 md:gap-2 border-l border-white/10 pl-2 md:pl-4">
+          <div className="flex items-center gap-1 md:gap-3">
+            {/* Top Navigation Buttons - Ordered Left to Right: Logout, Bell, Style, WhatsApp */}
+            <div className="flex items-center gap-2">
               <button 
                 onClick={handleLogout} 
-                className="p-2 bg-white/5 text-rose-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all"
+                className="p-2.5 bg-white/5 text-rose-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
                 title="تسجيل الخروج"
               >
-                <LogOut size={18} />
+                <LogOut size={20} />
               </button>
               
               <div className="relative" ref={notifRef}>
                 <button 
                   onClick={(e) => { e.stopPropagation(); setIsNotifDropdownOpen(!isNotifDropdownOpen); }}
-                  className="p-2 bg-white/5 text-amber-400 rounded-xl hover:bg-amber-500 hover:text-white transition-all relative"
+                  className="p-2.5 bg-white/5 text-amber-400 rounded-xl hover:bg-amber-500 hover:text-white transition-all relative shadow-sm"
                   title="الإشعارات"
                 >
-                  <Bell size={18} />
-                  {unreadCount > 0 && <div className="absolute top-1 right-1 w-2 h-2 bg-red-600 rounded-full border border-slate-900 animate-pulse"></div>}
+                  <Bell size={20} />
+                  {unreadCount > 0 && <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-600 rounded-full border border-slate-900 animate-pulse"></div>}
                 </button>
                 
                 {isNotifDropdownOpen && (
@@ -299,8 +322,8 @@ const App: React.FC = () => {
                           >
                             <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${!n.isRead ? 'bg-rose-500' : 'bg-transparent'}`}></div>
                             <div>
-                              <p className={`text-xs ${!n.isRead ? 'font-black text-white' : 'font-medium text-white/60'} line-clamp-2`}>{n.message}</p>
-                              <p className="text-[9px] text-white/20 mt-1">{new Date(n.timestamp).toLocaleString('ar-EG')}</p>
+                              <p className={`text-xs ${!n.isRead ? 'font-black text-white' : 'font-medium text-white/60'} line-clamp-2 text-right`}>{n.message}</p>
+                              <p className="text-[9px] text-white/20 mt-1 text-right">{new Date(n.timestamp).toLocaleString('ar-EG')}</p>
                             </div>
                           </button>
                         ))
@@ -311,26 +334,23 @@ const App: React.FC = () => {
               </div>
 
               <button 
-                className="p-2 bg-white/5 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all"
+                onClick={toggleTheme}
+                className="p-2.5 bg-white/5 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all shadow-sm"
                 title="تغيير الاستايل"
               >
-                <Palette size={18} />
+                <Palette size={20} />
               </button>
 
               <button 
                 onClick={openWhatsApp}
-                className="p-2 bg-white/5 text-green-400 rounded-xl hover:bg-green-500 hover:text-white transition-all"
-                title="اتصل بنا (واتساب)"
+                className="p-2.5 bg-white/5 text-green-400 rounded-xl hover:bg-green-500 hover:text-white transition-all shadow-sm"
+                title="تواصل واتساب"
               >
-                <Phone size={18} />
+                <Phone size={20} />
               </button>
             </div>
 
-            <div className="hidden md:flex flex-col items-end">
-               <span className="text-white font-black text-sm">{user.employeeName}</span>
-               <span className="text-[9px] font-bold text-rose-500/60 uppercase tracking-widest">{user.role}</span>
-            </div>
-            <div className="w-10 h-10 md:w-11 md:h-11 bg-rose-700/80 text-white rounded-2xl flex items-center justify-center font-black shadow-xl shadow-rose-900/20 border border-white/10">
+            <div className="w-10 h-10 md:w-11 md:h-11 bg-rose-700/80 text-white rounded-2xl flex items-center justify-center font-black shadow-xl border border-white/10">
                {user.employeeName.charAt(0)}
             </div>
           </div>
@@ -359,7 +379,7 @@ const App: React.FC = () => {
                  <h3 className="text-sm font-black text-amber-400">رسالة واردة</h3>
                  <button onClick={() => setSelectedNotif(null)} className="p-2 hover:bg-white/10 rounded-full"><X size={20}/></button>
                </div>
-               <div className="bg-white/5 p-6 rounded-2xl border border-white/10 text-sm font-bold leading-relaxed mb-8">
+               <div className="bg-white/5 p-6 rounded-2xl border border-white/10 text-sm font-bold leading-relaxed mb-8 text-right">
                  {selectedNotif.message}
                </div>
                <div className="flex gap-4">
