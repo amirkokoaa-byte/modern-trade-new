@@ -182,15 +182,32 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
                 <p className="text-center opacity-40 py-10 font-bold italic">لا توجد سجلات حالية</p>
               ) : (
                 filteredDetails.map(v => (
-                  <div key={v.id} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center group">
+                  <div key={v.id} className="bg-white/5 p-4 rounded-2xl flex justify-between items-center group border border-white/5 hover:border-rose-500/20 transition-all">
                     <div>
                       <span className="block text-xs font-black text-white">{new Date(v.date).toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long' })}</span>
                       <span className="block text-[10px] font-bold text-rose-400 mt-1">المدة: {v.days} يوم</span>
                     </div>
-                    {user.role === 'admin' && v.type !== 'annual' && (
+                    {user.role === 'admin' && (
                       <div className="flex gap-2">
-                        <button onClick={() => { setEditingVacation(v); setNewVacation({ date: v.date, days: v.days, type: v.type, targetUserId: v.userId }); setSelectedDetails(null); setIsModalOpen(true); }} className="p-2 text-blue-400 hover:bg-blue-400/10 rounded-lg"><Edit size={16}/></button>
-                        <button onClick={() => handleDeleteVacation(v.id)} className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg"><Trash2 size={16}/></button>
+                        <button 
+                          onClick={() => { 
+                            setEditingVacation(v); 
+                            setNewVacation({ date: v.date, days: v.days, type: v.type, targetUserId: v.userId }); 
+                            setSelectedDetails(null); 
+                            setIsModalOpen(true); 
+                          }} 
+                          className="p-2 text-blue-400 hover:bg-blue-400/10 rounded-lg transition-all"
+                          title="تعديل"
+                        >
+                          <Edit size={16}/>
+                        </button>
+                        <button 
+                          onClick={() => handleDeleteVacation(v.id)} 
+                          className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
+                          title="حذف"
+                        >
+                          <Trash2 size={16}/>
+                        </button>
                       </div>
                     )}
                   </div>

@@ -217,8 +217,12 @@ const App: React.FC = () => {
             </button>
           </div>
 
+          {/* Program Name in Header */}
+          <div className="hidden md:block">
+            <h2 className="text-lg font-black tracking-widest text-white/90">SOFT ROSE MODERN TRADE</h2>
+          </div>
+
           <div className="flex items-center gap-2">
-            {/* Header Icons Ordered: Logout, Bell, Palette, Phone */}
             <button 
               onClick={handleLogout} 
               className="p-2.5 bg-white/5 text-rose-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
