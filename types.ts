@@ -1,6 +1,5 @@
 
 export type UserRole = 'admin' | 'coordinator' | 'usher';
-export type AppTheme = 'standard' | 'glass' | 'dark' | 'modern';
 
 export interface UserPermissions {
   registerSales: boolean;
@@ -24,7 +23,6 @@ export interface User {
   phone: string;
   isOnline: boolean;
   permissions: UserPermissions;
-  canSeeAllSales?: boolean;
   vacationBalance: {
     annual: number;
     casual: number;
@@ -50,6 +48,7 @@ export interface AppSettings {
   whatsappNumber: string;
   programName: string;
   showTopSalesInTicker?: boolean;
+  isTickerAnimated?: boolean;
 }
 
 export interface Market {

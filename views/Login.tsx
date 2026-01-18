@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
 import { db, ref, onValue } from '../firebase';
-import { ShieldAlert, AlertCircle } from 'lucide-react';
+import { ShieldAlert, User as UserIcon, Lock, Sparkles, ChevronLeft, ArrowLeft } from 'lucide-react';
 
 interface Props {
   onLogin: (user: User) => void;
@@ -57,46 +57,99 @@ const Login: React.FC<Props> = ({ onLogin }) => {
             const userWithId = { ...data, id: data.id || id };
             onLogin(userWithId as User);
           } else {
-            setError('اسم المستخدم أو كلمة المرور غير صحيحة');
+            setError('خطأ في بيانات الدخول');
             setLoading(false);
           }
         } else {
-          setError('قاعدة البيانات فارغة أو غير متصلة.');
+          setError('السيرفر غير مستجيب');
           setLoading(false);
         }
       }, { onlyOnce: true });
     } catch (err) {
-      setError('خطأ في الاتصال بالسيرفر.');
+      setError('خطأ في الاتصال');
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[#FFF0F3] flex items-center justify-center p-4">
-      <div className="bg-white p-8 md:p-12 rounded-[2rem] shadow-2xl w-full max-w-lg border border-rose-100 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <div className="glass-login w-full max-w-md rounded-[2.5rem] p-8 md:p-12 relative overflow-hidden group">
+        
+        {/* Decorative Inner Glows */}
+        <div className="absolute -top-24 -left-24 w-48 h-48 bg-rose-500/10 rounded-full blur-3xl group-hover:bg-rose-500/20 transition-all duration-700"></div>
+        <div className="absolute -bottom-24 -right-24 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl group-hover:bg-purple-500/20 transition-all duration-700"></div>
+
         <div className="relative z-10">
+          {/* Logo Section */}
           <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-rose-800 text-white rounded-3xl shadow-xl mb-6 transform rotate-3">
-              <span className="text-3xl font-black">SR</span>
+            <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-tr from-rose-900 to-rose-600 rounded-3xl shadow-2xl mb-6 transform hover:scale-110 transition-transform duration-500">
+              <Sparkles className="w-10 h-10 text-white animate-pulse" />
             </div>
-            <h1 className="text-4xl font-black text-rose-900 mb-2 tracking-tighter">SOFT ROSE</h1>
-            <p className="text-rose-400 font-medium uppercase text-xs tracking-[0.2em]">Modern Trade Management</p>
+            <h1 className="text-3xl font-black text-white mb-2 tracking-tight">SOFT ROSE</h1>
+            <div className="flex items-center justify-center gap-2">
+              <div className="h-[1px] w-8 bg-rose-500/30"></div>
+              <p className="text-rose-400 font-bold uppercase text-[9px] tracking-[0.3em]">Modern Trade Portal</p>
+              <div className="h-[1px] w-8 bg-rose-500/30"></div>
+            </div>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="block text-xs font-bold mb-2 text-rose-900/40 uppercase tracking-widest mr-1">اسم المستخدم</label>
-              <input className="w-full bg-slate-50 border-2 border-transparent focus:border-rose-200 rounded-2xl p-4 outline-none transition-all text-rose-900 font-bold" placeholder="ادخل اسم المستخدم" value={username} onChange={(e) => setUsername(e.target.value)} required />
+            {/* Username Input */}
+            <div className="input-glow-wrapper">
+              <div className="flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 group-focus-within:bg-white/10 transition-all">
+                <UserIcon className="text-rose-400 group-focus-within:text-rose-300" size={18} />
+                <input 
+                  className="w-full bg-transparent p-4 outline-none font-bold text-white placeholder-white/20 text-sm" 
+                  placeholder="اسم المستخدم" 
+                  value={username} 
+                  onChange={(e) => setUsername(e.target.value)} 
+                  required 
+                />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs font-bold mb-2 text-rose-900/40 uppercase tracking-widest mr-1">كلمة المرور</label>
-              <input type="password" className="w-full bg-slate-50 border-2 border-transparent focus:border-rose-200 rounded-2xl p-4 outline-none transition-all text-rose-900 font-bold" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} required />
+
+            {/* Password Input */}
+            <div className="input-glow-wrapper">
+              <div className="flex items-center bg-white/5 border border-white/10 rounded-2xl px-4 group-focus-within:bg-white/10 transition-all">
+                <Lock className="text-rose-400 group-focus-within:text-rose-300" size={18} />
+                <input 
+                  type="password" 
+                  className="w-full bg-transparent p-4 outline-none font-bold text-white placeholder-white/20 text-sm" 
+                  placeholder="كلمة المرور" 
+                  value={password} 
+                  onChange={(e) => setPassword(e.target.value)} 
+                  required 
+                />
+              </div>
             </div>
-            {error && <div className="flex items-center gap-3 bg-red-50 text-red-600 p-4 rounded-2xl border border-red-100"><ShieldAlert size={20}/><p className="text-sm font-bold">{error}</p></div>}
-            <button type="submit" disabled={loading} className="w-full bg-rose-800 text-white font-black py-5 rounded-2xl hover:bg-rose-900 shadow-xl disabled:opacity-50 flex items-center justify-center gap-3">
-              {loading ? <div className="w-5 h-5 border-4 border-white/20 border-t-white rounded-full animate-spin"></div> : 'دخول النظام'}
+
+            {error && (
+              <div className="flex items-center gap-3 bg-red-500/10 text-red-400 p-4 rounded-2xl border border-red-500/20 backdrop-blur-md animate-in slide-in-from-top-2">
+                <ShieldAlert size={18}/>
+                <p className="text-[11px] font-black">{error}</p>
+              </div>
+            )}
+
+            <button 
+              type="submit" 
+              disabled={loading} 
+              className="w-full bg-rose-700 hover:bg-rose-600 text-white font-black py-5 rounded-2xl shadow-2xl shadow-rose-950/50 disabled:opacity-50 flex items-center justify-center gap-3 transition-all duration-300 active:scale-[0.98] group/btn"
+            >
+              {loading ? (
+                <div className="w-6 h-6 border-4 border-white/20 border-t-white rounded-full animate-spin"></div>
+              ) : (
+                <>
+                  <span className="tracking-wide">الدخول الآمن</span>
+                  <ArrowLeft size={18} className="group-hover/btn:-translate-x-1 transition-transform" />
+                </>
+              )}
             </button>
           </form>
+
+          {/* Footer Info */}
+          <div className="mt-12 text-center opacity-30">
+             <p className="text-[9px] font-black text-white uppercase tracking-[0.4em]">Integrated Management System v2.0</p>
+          </div>
         </div>
       </div>
     </div>
