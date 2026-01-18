@@ -14,7 +14,7 @@
         margin: 0;
         overflow-x: hidden;
         color: white;
-        transition: background-color 0.5s ease;
+        transition: all 0.5s ease;
       }
 
       .bg-blob {
@@ -28,19 +28,23 @@
         animation: move 25s infinite alternate ease-in-out;
       }
 
-      /* Theme Blobs */
+      /* Theme Definitions */
+      body.blob-rose { background-color: #020617; }
       .blob-rose .blob-1 { background: #881337; top: -200px; right: -200px; }
       .blob-rose .blob-2 { background: #4c1d95; bottom: -200px; left: -200px; }
       .blob-rose .blob-3 { background: #db2777; top: 30%; left: 20%; }
 
-      .blob-dark .blob-1 { background: #0f172a; top: -200px; right: -200px; opacity: 0.6; }
-      .blob-dark .blob-2 { background: #1e293b; bottom: -200px; left: -200px; }
-      .blob-dark .blob-3 { background: #334155; top: 30%; left: 20%; }
+      body.blob-dark { background-color: #000000; }
+      .blob-dark .blob-1 { background: #1e293b; top: -200px; right: -200px; opacity: 0.2; }
+      .blob-dark .blob-2 { background: #0f172a; bottom: -200px; left: -200px; opacity: 0.2; }
+      .blob-dark .blob-3 { background: #334155; top: 30%; left: 20%; opacity: 0.1; }
 
+      body.blob-purple { background-color: #0a0118; }
       .blob-purple .blob-1 { background: #581c87; top: -200px; right: -200px; }
       .blob-purple .blob-2 { background: #7e22ce; bottom: -200px; left: -200px; }
       .blob-purple .blob-3 { background: #a855f7; top: 30%; left: 20%; }
 
+      body.blob-emerald { background-color: #010a05; }
       .blob-emerald .blob-1 { background: #064e3b; top: -200px; right: -200px; }
       .blob-emerald .blob-2 { background: #065f46; bottom: -200px; left: -200px; }
       .blob-emerald .blob-3 { background: #059669; top: 30%; left: 20%; }
@@ -55,37 +59,17 @@
         backdrop-filter: blur(30px);
         -webkit-backdrop-filter: blur(30px);
         border: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
       }
 
       .glass-input-dark {
         background: rgba(255, 255, 255, 0.05);
         border: 1px solid rgba(255, 255, 255, 0.1);
         color: white !important;
-        transition: all 0.3s ease;
-      }
-      .glass-input-dark:focus {
-        background: rgba(255, 255, 255, 0.08);
-        border-color: rgba(244, 63, 94, 0.5);
-        box-shadow: 0 0 15px rgba(244, 63, 94, 0.2);
-      }
-
-      .glass-sidebar-inner {
-        background: rgba(15, 23, 42, 0.2);
-        backdrop-filter: blur(40px);
-        border-left: 1px solid rgba(255, 255, 255, 0.05);
-      }
-
-      .glass-header-inner {
-        background: rgba(2, 6, 23, 0.3);
-        backdrop-filter: blur(25px);
-        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
       }
 
       .custom-scrollbar::-webkit-scrollbar { width: 4px; }
       .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 10px; }
-      .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(244, 63, 94, 0.4); }
-
+      
       @keyframes ticker-scroll { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
       .animate-ticker { display: inline-block; white-space: nowrap; animation: ticker-scroll 45s linear infinite; }
       .ticker-container { width: 100%; overflow: hidden; white-space: nowrap; }

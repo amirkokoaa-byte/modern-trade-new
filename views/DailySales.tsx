@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { User, SaleItem, DailySale } from '../types';
 import { PRODUCT_GROUPS } from '../constants';
-import { Plus, Trash2, Save, ShoppingBag, PlusCircle, Sparkles } from 'lucide-react';
+import { Plus, Trash2, Save, ShoppingBag, PlusCircle } from 'lucide-react';
 import { db, ref, push } from '../firebase';
 
 interface Props {
@@ -17,7 +17,7 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
   const [newMarketName, setNewMarketName] = useState('');
 
   // Initial products logic: load automatically on mount
-  useEffect(() => {
+  const initItems = () => {
     const allItems: SaleItem[] = [];
     Object.entries(PRODUCT_GROUPS).forEach(([cat, products]) => {
       products.forEach(p => {
@@ -31,6 +31,10 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
       });
     });
     setItems(allItems);
+  };
+
+  useEffect(() => {
+    initItems();
   }, []);
 
   const updateItem = (id: string, field: keyof SaleItem, value: any) => {
@@ -75,23 +79,8 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
     try {
       await push(ref(db, 'sales'), sale);
       alert("تم الحفظ والترحيل بنجاح");
-      
-      // Full screen reset after success
       setSelectedMarket(''); 
-      // Re-initialize items
-      const resetItems: SaleItem[] = [];
-      Object.entries(PRODUCT_GROUPS).forEach(([cat, products]) => {
-        products.forEach(p => {
-          resetItems.push({
-            id: `${cat}-${p}-${Date.now()}-${Math.random()}`,
-            category: cat,
-            productName: p,
-            price: 0,
-            quantity: 0
-          });
-        });
-      });
-      setItems(resetItems);
+      initItems(); // Reset everything
     } catch (e) {
       alert("خطأ في الاتصال بالشبكة");
     }
@@ -111,7 +100,7 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
     <div className="max-w-7xl mx-auto pb-20" dir="rtl">
       <div className="space-y-8">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6 p-8 md:p-12 rounded-[2.5rem] bg-gradient-to-br from-rose-900/60 to-rose-700/20 backdrop-blur-3xl border border-white/10 shadow-2xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-rose-500/20 blur-[80px]"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-rose-50/20 blur-[80px]"></div>
           <div className="flex items-center gap-5 relative z-10">
             <div className="p-4 bg-white/5 rounded-3xl border border-white/10">
               <ShoppingBag className="w-8 h-8 text-rose-400" />
@@ -135,7 +124,7 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
               onChange={(e) => setSelectedMarket(e.target.value)}
             >
               <option value="" className="bg-slate-900">-- اضغط لاختيار الماركت --</option>
-              {markets && markets.map(m => <option key={m} value={m} className="bg-slate-900">{m}</option>)}
+              {markets.map(m => <option key={m} value={m} className="bg-slate-900">{m}</option>)}
             </select>
           </div>
           <button 
@@ -154,12 +143,6 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
                 <h3 className="text-sm font-black text-rose-100 uppercase tracking-wide">{getCategoryLabel(cat)}</h3>
               </div>
               <div className="space-y-2">
-                <div className="grid grid-cols-[2fr,1fr,1fr,1.2fr] gap-4 px-6 py-2 text-[10px] font-black text-white/30 uppercase tracking-widest">
-                  <span>اسم الصنف</span>
-                  <span className="text-center">السعر</span>
-                  <span className="text-center">العدد</span>
-                  <span className="text-center">الإجمالي</span>
-                </div>
                 {items.filter(i => i.category === cat).map(item => (
                   <div key={item.id} className="p-4 bg-white/[0.02] border border-white/[0.05] rounded-2xl hover:bg-white/[0.05] hover:border-rose-500/30 transition-all group">
                     <div className="grid grid-cols-[2fr,1fr,1fr,1.2fr] gap-4 items-center">
@@ -174,25 +157,24 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
                         ) : item.productName}
                       </div>
                       <input 
-                        type="number" placeholder="0" 
+                        type="number" placeholder="السعر" 
                         className="w-full glass-input-dark rounded-xl p-3 text-center font-bold text-rose-400 outline-none text-sm"
                         value={item.price || ''} onChange={(e) => updateItem(item.id, 'price', e.target.value)}
                       />
                       <input 
-                        type="number" placeholder="0" 
+                        type="number" placeholder="العدد" 
                         className={`w-full rounded-xl p-3 text-center font-black outline-none text-sm transition-all border ${item.quantity > 0 ? 'bg-rose-600 border-rose-400 text-white shadow-[0_0_15px_rgba(225,29,72,0.3)]' : 'bg-white/5 border-white/10 text-white/40'}`}
                         value={item.quantity || ''} onChange={(e) => updateItem(item.id, 'quantity', e.target.value)}
                       />
                       <div className="bg-white/5 rounded-xl p-3 text-center font-black text-rose-100/80 text-sm border border-white/5">
-                        {(Number(item.price || 0) * Number(item.quantity || 0)).toLocaleString()}
-                        <span className="text-[9px] opacity-40 mr-1">ج.م</span>
+                        {(Number(item.price || 0) * Number(item.quantity || 0)).toLocaleString()} ج.م
                       </div>
                     </div>
                   </div>
                 ))}
                 <button 
                   onClick={() => addItemManual(cat)}
-                  className="w-full py-4 border border-dashed border-white/10 rounded-2xl text-white/30 font-black text-[11px] flex items-center justify-center gap-2 hover:bg-white/5 hover:text-rose-400 hover:border-rose-500/30 transition-all"
+                  className="w-full py-4 border border-dashed border-white/10 rounded-2xl text-white/30 font-black text-[11px] flex items-center justify-center gap-2 hover:bg-white/5 hover:text-rose-400"
                 >
                   <PlusCircle size={16}/> إضافة منتج يدوي لقسم {getCategoryLabel(cat)}
                 </button>
@@ -203,7 +185,6 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
             onClick={handleSave}
             className="w-full py-6 bg-rose-600 text-white rounded-[2rem] font-black text-xl flex items-center justify-center gap-4 hover:bg-rose-500 transition-all shadow-2xl active:scale-[0.98] group relative overflow-hidden"
           >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:animate-[shimmer_2s_infinite]"></div>
             <Save size={28}/> 
             <span>ترحيل وحفظ البيانات النهائية</span>
           </button>

@@ -39,9 +39,6 @@ const App: React.FC = () => {
   const [selectedNotif, setSelectedNotif] = useState<Notification | null>(null);
   const [currentTheme, setCurrentTheme] = useState<'rose' | 'dark' | 'purple' | 'emerald'>('rose');
 
-  const notifRef = useRef<HTMLDivElement>(null);
-
-  // Theme Config
   const themes = {
     rose: 'blob-rose',
     dark: 'blob-dark',
@@ -52,25 +49,6 @@ const App: React.FC = () => {
   useEffect(() => {
     document.body.className = themes[currentTheme];
   }, [currentTheme]);
-
-  // Monthly Reset Logic for "Absent without Permission"
-  useEffect(() => {
-    if (user?.role === 'admin' && users.length > 0) {
-      const currentMonth = new Date().getMonth();
-      const lastResetMonth = localStorage.getItem('lastResetMonth');
-      
-      if (lastResetMonth === null || parseInt(lastResetMonth) !== currentMonth) {
-        users.forEach(u => {
-          if (u.id && u.vacationBalance) {
-            update(ref(db, `users/${u.id}/vacationBalance`), {
-              absent_without_permission: 0
-            });
-          }
-        });
-        localStorage.setItem('lastResetMonth', currentMonth.toString());
-      }
-    }
-  }, [user, users]);
 
   useEffect(() => {
     onValue(ref(db, 'settings'), (snapshot) => {
@@ -101,6 +79,8 @@ const App: React.FC = () => {
       if (data) {
         const list = Object.entries(data).map(([id, val]: any) => ({ ...val, id }));
         setVacations(list);
+      } else {
+        setVacations([]);
       }
     });
 
@@ -173,23 +153,18 @@ const App: React.FC = () => {
     setUser(null);
   };
 
-  const openWhatsApp = () => {
-    if (settings?.whatsappNumber) {
-      window.open(`https://wa.me/${settings.whatsappNumber}`, '_blank');
-    } else {
-      alert("لم يتم تسجيل رقم واتساب في الإعدادات");
-    }
-  };
-
   const toggleTheme = () => {
     const themeOrder: Array<'rose' | 'dark' | 'purple' | 'emerald'> = ['rose', 'dark', 'purple', 'emerald'];
     const nextIdx = (themeOrder.indexOf(currentTheme) + 1) % themeOrder.length;
     setCurrentTheme(themeOrder[nextIdx]);
   };
 
-  const deleteNotification = async (id: string) => {
-    await remove(ref(db, `notifications/${id}`));
-    if (selectedNotif?.id === id) setSelectedNotif(null);
+  const openWhatsApp = () => {
+    if (settings?.whatsappNumber) {
+      window.open(`https://wa.me/${settings.whatsappNumber}`, '_blank');
+    } else {
+      alert("لم يتم تسجيل رقم واتساب في الإعدادات");
+    }
   };
 
   const sidebarItems = [
@@ -208,7 +183,6 @@ const App: React.FC = () => {
 
   return (
     <div className={`flex h-screen overflow-hidden relative bg-transparent text-white ${currentTheme}-theme`}>
-      {/* Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
           className="fixed inset-0 bg-black/60 z-[60] backdrop-blur-md transition-all duration-300" 
@@ -216,13 +190,12 @@ const App: React.FC = () => {
         />
       )}
 
-      {/* Glass Sidebar */}
       <aside className={`glass-sidebar-inner text-white w-72 flex-shrink-0 transition-all duration-500 z-[70] fixed md:absolute md:relative inset-y-0 ${isSidebarOpen ? 'right-0' : '-right-72 md:-right-72'} shadow-2xl`}>
         <div className="p-8 flex flex-col h-full">
           <div className="mb-12 flex items-center justify-between">
             <div className="flex flex-col">
               <span className="text-[10px] uppercase font-black tracking-[0.4em] text-rose-500">SOFT ROSE</span>
-              <h1 className="text-xl font-black tracking-tighter">Modern Trade</h1>
+              <h1 className="text-xl font-black tracking-tighter">Soft Rose</h1>
             </div>
             <button onClick={() => setIsSidebarOpen(false)} className="p-2 hover:bg-white/10 rounded-xl transition-all"><X size={20}/></button>
           </div>
@@ -272,87 +245,82 @@ const App: React.FC = () => {
               className="p-2.5 bg-white/5 text-white rounded-xl hover:bg-white/10 transition-all active:scale-95 flex items-center gap-3"
             >
               <Menu size={22} />
-              <span className="hidden md:block font-black text-xs text-white/80">{user.employeeName}</span>
+              <span className="font-black text-sm text-white/80">{user.employeeName}</span>
             </button>
-            <h2 className="font-black text-white text-lg tracking-tight hidden sm:block">
-              {settings?.programName || 'Soft Rose Modern Trade'}
-            </h2>
           </div>
 
-          <div className="flex items-center gap-1 md:gap-3">
-            {/* Top Navigation Buttons - Ordered Left to Right: Logout, Bell, Style, WhatsApp */}
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
+            <button 
+              onClick={handleLogout} 
+              className="p-2.5 bg-white/5 text-rose-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all"
+              title="تسجيل الخروج"
+            >
+              <LogOut size={20} />
+            </button>
+
+            {/* AI Assistant Toggle Button */}
+            <button 
+              onClick={(e) => { e.stopPropagation(); setIsAIChatOpen(!isAIChatOpen); }}
+              className="p-2.5 bg-white/5 text-amber-300 rounded-xl hover:bg-amber-500 hover:text-white transition-all"
+              title="مساعدة الذكاء الاصطناعي"
+            >
+              <Sparkles size={20} />
+            </button>
+            
+            <div className="relative">
               <button 
-                onClick={handleLogout} 
-                className="p-2.5 bg-white/5 text-rose-400 rounded-xl hover:bg-rose-500 hover:text-white transition-all shadow-sm"
-                title="تسجيل الخروج"
+                onClick={(e) => { e.stopPropagation(); setIsNotifDropdownOpen(!isNotifDropdownOpen); }}
+                className="p-2.5 bg-white/5 text-amber-400 rounded-xl hover:bg-amber-500 hover:text-white transition-all relative"
+                title="الإشعارات"
               >
-                <LogOut size={20} />
+                <Bell size={20} />
+                {unreadCount > 0 && <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-600 rounded-full border border-slate-900 animate-pulse"></div>}
               </button>
               
-              <div className="relative" ref={notifRef}>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); setIsNotifDropdownOpen(!isNotifDropdownOpen); }}
-                  className="p-2.5 bg-white/5 text-amber-400 rounded-xl hover:bg-amber-500 hover:text-white transition-all relative shadow-sm"
-                  title="الإشعارات"
-                >
-                  <Bell size={20} />
-                  {unreadCount > 0 && <div className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-600 rounded-full border border-slate-900 animate-pulse"></div>}
-                </button>
-                
-                {isNotifDropdownOpen && (
-                  <div className="absolute left-0 mt-4 w-72 glass-card-dark rounded-2xl overflow-hidden shadow-2xl z-[100] animate-in fade-in slide-in-from-top-2" onClick={e => e.stopPropagation()}>
-                    <div className="p-4 bg-white/5 border-b border-white/10 flex justify-between items-center">
-                      <span className="text-xs font-black">مركز التنبيهات</span>
-                      <span className="text-[10px] bg-rose-600 px-2 py-0.5 rounded-full">{userNotifications.length}</span>
-                    </div>
-                    <div className="max-h-64 overflow-y-auto custom-scrollbar">
-                      {userNotifications.length === 0 ? (
-                        <div className="p-8 text-center text-white/20 text-[10px] font-bold italic">لا توجد رسائل جديدة</div>
-                      ) : (
-                        userNotifications.map(n => (
-                          <button 
-                            key={n.id} 
-                            onClick={() => {
-                              setSelectedNotif(n);
-                              setIsNotifDropdownOpen(false);
-                              update(ref(db, `notifications/${n.id}`), { isRead: true });
-                            }}
-                            className={`w-full p-4 text-right hover:bg-white/5 transition-all border-b border-white/5 flex gap-3 items-start ${!n.isRead ? 'bg-rose-600/5' : ''}`}
-                          >
-                            <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${!n.isRead ? 'bg-rose-500' : 'bg-transparent'}`}></div>
-                            <div>
-                              <p className={`text-xs ${!n.isRead ? 'font-black text-white' : 'font-medium text-white/60'} line-clamp-2 text-right`}>{n.message}</p>
-                              <p className="text-[9px] text-white/20 mt-1 text-right">{new Date(n.timestamp).toLocaleString('ar-EG')}</p>
-                            </div>
-                          </button>
-                        ))
-                      )}
-                    </div>
+              {isNotifDropdownOpen && (
+                <div className="absolute left-0 mt-4 w-72 glass-card-dark rounded-2xl overflow-hidden shadow-2xl z-[100] animate-in fade-in slide-in-from-top-2" onClick={e => e.stopPropagation()}>
+                  <div className="p-4 bg-white/5 border-b border-white/10 flex justify-between items-center">
+                    <span className="text-xs font-black text-right">مركز التنبيهات</span>
                   </div>
-                )}
-              </div>
-
-              <button 
-                onClick={toggleTheme}
-                className="p-2.5 bg-white/5 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all shadow-sm"
-                title="تغيير الاستايل"
-              >
-                <Palette size={20} />
-              </button>
-
-              <button 
-                onClick={openWhatsApp}
-                className="p-2.5 bg-white/5 text-green-400 rounded-xl hover:bg-green-500 hover:text-white transition-all shadow-sm"
-                title="تواصل واتساب"
-              >
-                <Phone size={20} />
-              </button>
+                  <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                    {userNotifications.length === 0 ? (
+                      <div className="p-8 text-center text-white/20 text-[10px] font-bold italic">لا توجد رسائل جديدة</div>
+                    ) : (
+                      userNotifications.map(n => (
+                        <button 
+                          key={n.id} 
+                          onClick={() => {
+                            setSelectedNotif(n);
+                            setIsNotifDropdownOpen(false);
+                            update(ref(db, `notifications/${n.id}`), { isRead: true });
+                          }}
+                          className={`w-full p-4 text-right hover:bg-white/5 transition-all border-b border-white/5 flex gap-3 items-start ${!n.isRead ? 'bg-rose-600/5' : ''}`}
+                        >
+                          <div className={`w-2 h-2 rounded-full mt-1.5 shrink-0 ${!n.isRead ? 'bg-rose-500' : 'bg-transparent'}`}></div>
+                          <p className={`text-xs ${!n.isRead ? 'font-black text-white' : 'font-medium text-white/60'} line-clamp-2`}>{n.message}</p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
 
-            <div className="w-10 h-10 md:w-11 md:h-11 bg-rose-700/80 text-white rounded-2xl flex items-center justify-center font-black shadow-xl border border-white/10">
-               {user.employeeName.charAt(0)}
-            </div>
+            <button 
+              onClick={toggleTheme}
+              className="p-2.5 bg-white/5 text-blue-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all"
+              title="تغيير الاستايل"
+            >
+              <Palette size={20} />
+            </button>
+
+            <button 
+              onClick={openWhatsApp}
+              className="p-2.5 bg-white/5 text-green-400 rounded-xl hover:bg-green-500 hover:text-white transition-all"
+              title="تواصل واتساب"
+            >
+              <Phone size={20} />
+            </button>
           </div>
         </header>
 
@@ -371,7 +339,17 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        {/* Notif Modal */}
+        {/* Floating AI Chatbot View */}
+        {isAIChatOpen && (
+          <div className="fixed bottom-6 left-6 w-[90%] md:w-96 h-[600px] z-[500] animate-in slide-in-from-bottom-10" onClick={e => e.stopPropagation()}>
+            <AIChatbot 
+              user={user} 
+              onClose={() => setIsAIChatOpen(false)} 
+              appData={{ sales, inventory, vacations, users, markets, settings }} 
+            />
+          </div>
+        )}
+
         {selectedNotif && (
           <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[2000] flex items-center justify-center p-4">
             <div className="glass-card-dark rounded-[3rem] p-8 max-w-md w-full border border-white/10 animate-in zoom-in-95">
@@ -384,17 +362,14 @@ const App: React.FC = () => {
                </div>
                <div className="flex gap-4">
                  <button 
-                  onClick={() => {
-                    navigator.clipboard.writeText(selectedNotif.message);
-                    alert("تم النسخ بنجاح");
-                  }} 
-                  className="flex-1 bg-white/10 text-white py-4 rounded-xl flex items-center justify-center gap-2 font-black text-xs hover:bg-white/20 transition-all"
+                  onClick={() => { navigator.clipboard.writeText(selectedNotif.message); alert("تم النسخ بنجاح"); }} 
+                  className="flex-1 bg-white/10 text-white py-4 rounded-xl flex items-center justify-center gap-2 font-black text-xs"
                  >
                    <Copy size={16}/> نسخ النص
                  </button>
                  <button 
-                  onClick={() => deleteNotification(selectedNotif.id)} 
-                  className="flex-1 bg-red-600 text-white py-4 rounded-xl flex items-center justify-center gap-2 font-black text-xs hover:bg-red-700 transition-all"
+                  onClick={async () => { await remove(ref(db, `notifications/${selectedNotif.id}`)); setSelectedNotif(null); }} 
+                  className="flex-1 bg-red-600 text-white py-4 rounded-xl flex items-center justify-center gap-2 font-black text-xs"
                  >
                    <Trash2 size={16}/> حذف
                  </button>
@@ -402,25 +377,6 @@ const App: React.FC = () => {
             </div>
           </div>
         )}
-
-        {/* Floating AI */}
-        <div className="fixed bottom-8 left-8 z-[1000] flex flex-col items-end gap-5 pointer-events-none">
-          {isAIChatOpen && (
-            <div className="w-[90vw] md:w-[420px] h-[600px] pointer-events-auto animate-in slide-in-from-bottom-10 fade-in duration-500 shadow-2xl">
-              <AIChatbot 
-                user={user} 
-                onClose={() => setIsAIChatOpen(false)}
-                appData={{ sales, inventory, vacations, users, markets, settings }}
-              />
-            </div>
-          )}
-          <button 
-            onClick={(e) => { e.stopPropagation(); setIsAIChatOpen(!isAIChatOpen); }}
-            className={`w-14 h-14 rounded-2xl bg-rose-600 text-white flex items-center justify-center shadow-2xl pointer-events-auto transition-all duration-500 hover:scale-110 group ${isAIChatOpen ? 'rotate-90 bg-slate-900' : 'animate-bounce active-glow'}`}
-          >
-            {isAIChatOpen ? <X size={24}/> : <Sparkles size={28} className="text-amber-300" />}
-          </button>
-        </div>
       </main>
     </div>
   );

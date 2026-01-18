@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { User, Vacation } from '../types';
 import { db, ref, onValue, push, set, remove, update } from '../firebase';
-import { Calendar, Plus, Trash2, Clock, ChevronRight, ChevronLeft, X, Edit, User as UserIcon, ListFilter, History, RotateCcw, Save } from 'lucide-react';
+import { Calendar, Plus, Trash2, Clock, ChevronRight, ChevronLeft, X, Edit, User as UserIcon, History, RotateCcw, Save } from 'lucide-react';
 
 interface Props {
   user: User;
@@ -31,7 +31,7 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
   const handleAddVacation = async () => {
     const targetUserId = user.role === 'admin' ? newVacation.targetUserId : user.id;
     
-    // Duplicate check
+    // Duplicate check for date
     const isDuplicate = vacations.some(v => v.userId === targetUserId && v.date === newVacation.date && v.id !== (editingVacation?.id || ''));
     if (isDuplicate) {
       alert("⚠️ تم تسجيل هذا اليوم من قبل لهذا الموظف");
@@ -71,7 +71,7 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
     
     setIsModalOpen(false);
     setEditingVacation(null);
-    alert(editingVacation ? "✅ تم تحديث الإجازة بنجاح" : "✅ تم تسجيل الإجازة بنجاح");
+    alert("✅ تم الحفظ بنجاح");
   };
 
   const handleDeleteVacation = async (id: string) => {
@@ -140,7 +140,7 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
             <div className="p-3 bg-rose-600 text-white rounded-2xl shadow-lg active-glow"><Calendar size={24}/></div>
             <div>
               <h2 className="text-2xl font-black text-white leading-none">إدارة الإجازات</h2>
-              <p className="text-[10px] text-rose-400 font-bold uppercase tracking-widest mt-1">Vacation Balance Hub</p>
+              <p className="text-[10px] text-rose-400 font-bold uppercase tracking-widest mt-1 text-right">Vacation Balance Hub</p>
             </div>
           </div>
           <button 
@@ -229,9 +229,9 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
                 <div className="text-center py-10 opacity-40 italic font-bold text-white/40">لا توجد سجلات لهذه الفترة</div>
               ) : (
                 filteredDetails.map(v => (
-                  <div key={v.id} className="bg-white/5 p-4 rounded-2xl border border-white/10 shadow-sm flex justify-between items-center group">
+                  <div key={v.id} className="bg-white/5 p-4 rounded-2xl border border-white/10 shadow-sm flex justify-between items-center group text-right">
                     <div>
-                      <span className="block text-xs font-black text-white">{new Date(v.date).toLocaleDateString('ar-EG', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                      <span className="block text-xs font-black text-white">{new Date(v.date).toLocaleDateString('ar-EG', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</span>
                       <span className="block text-[10px] font-bold text-rose-400/60 italic mt-1">المدة: {v.days} يوم</span>
                     </div>
                     {user.role === 'admin' && v.type !== 'annual' && (
@@ -243,14 +243,11 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
                             setSelectedDetails(null);
                             setIsModalOpen(true);
                           }}
-                          className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg transition-all"
+                          className="p-2 text-blue-400 hover:bg-blue-500/10 rounded-lg"
                         >
                           <Edit size={16}/>
                         </button>
-                        <button 
-                          onClick={() => handleDeleteVacation(v.id)} 
-                          className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-all"
-                        >
+                        <button onClick={() => handleDeleteVacation(v.id)} className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg">
                           <Trash2 size={16}/>
                         </button>
                       </div>
@@ -260,7 +257,7 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
               )}
             </div>
             <div className="p-6 bg-white/5 border-t border-white/5 flex gap-3">
-               <button onClick={() => setCurrentPeriodDate(new Date())} className="flex-1 bg-white/5 text-white/60 py-4 rounded-2xl font-black text-sm hover:bg-white/10 transition-all border border-white/10">الشهر الحالي</button>
+               <button onClick={() => setCurrentPeriodDate(new Date())} className="flex-1 bg-white/5 text-white/60 py-4 rounded-2xl font-black text-sm border border-white/10">الشهر الحالي</button>
                <button onClick={() => setSelectedDetails(null)} className="flex-[2] bg-rose-600 text-white py-4 rounded-2xl font-black text-sm">إغلاق</button>
             </div>
           </div>
@@ -277,12 +274,7 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px] font-black text-white/30 uppercase mb-2 mr-1">الموظف</label>
-                <select 
-                  className={`w-full glass-input-dark rounded-xl p-4 font-bold outline-none border border-white/10 ${user.role !== 'admin' ? 'opacity-40' : ''}`}
-                  value={newVacation.targetUserId}
-                  disabled={user.role !== 'admin'}
-                  onChange={(e) => setNewVacation({...newVacation, targetUserId: e.target.value})}
-                >
+                <select className="w-full glass-input-dark rounded-xl p-4 font-bold outline-none border border-white/10" value={newVacation.targetUserId} onChange={(e) => setNewVacation({...newVacation, targetUserId: e.target.value})} disabled={user.role !== 'admin'}>
                   {users.map(u => <option key={u.id} value={u.id} className="bg-slate-900">{u.employeeName}</option>)}
                 </select>
               </div>
@@ -322,7 +314,7 @@ const VacationManagement: React.FC<Props> = ({ user, users, vacations }) => {
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[2000] flex items-center justify-center p-4">
           <div className="glass-card-dark rounded-[3rem] w-full max-w-md p-8 shadow-2xl border border-white/10 animate-in zoom-in-95">
             <h3 className="text-xl font-black text-white mb-6 border-b border-white/10 pb-4">تحديث أرصدة {editingUserBalance.employeeName}</h3>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 text-right">
               <div><label className="block text-[10px] font-black text-white/40 mb-2">سنوي</label><input type="number" className="w-full glass-input-dark rounded-xl p-4 font-bold border border-white/10" value={editingUserBalance.vacationBalance?.annual} onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...(editingUserBalance.vacationBalance || {}), annual: Number(e.target.value)} as any})} /></div>
               <div><label className="block text-[10px] font-black text-white/40 mb-2">عارضة</label><input type="number" className="w-full glass-input-dark rounded-xl p-4 font-bold border border-white/10" value={editingUserBalance.vacationBalance?.casual} onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...(editingUserBalance.vacationBalance || {}), casual: Number(e.target.value)} as any})} /></div>
               <div><label className="block text-[10px] font-black text-white/40 mb-2">مرضي</label><input type="number" className="w-full glass-input-dark rounded-xl p-4 font-bold border border-white/10" value={editingUserBalance.vacationBalance?.sick} onChange={(e) => setEditingUserBalance({...editingUserBalance, vacationBalance: {...(editingUserBalance.vacationBalance || {}), sick: Number(e.target.value)} as any})} /></div>
