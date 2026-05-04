@@ -127,12 +127,12 @@ const InventoryRegistration: React.FC<Props> = ({ user, markets }) => {
                   {/* Standard Products */}
                   {/* Fix: Corrected key prop syntax */}
                   {PRODUCT_GROUPS[cat].map(p => (
-                    <div key={p} className="p-4 bg-white border border-slate-100 rounded-2xl flex items-center justify-between group hover:border-blue-200 transition-all">
-                      <span className="text-xs font-bold text-gray-600 flex-1 ml-4 leading-tight">{p}</span>
+                    <div key={p} className="p-3 md:p-4 bg-white border border-slate-100 rounded-xl md:rounded-2xl flex items-center justify-between group hover:border-blue-200 transition-all w-full">
+                      <span className="text-[10px] md:text-xs font-bold text-gray-600 flex-1 ml-2 md:ml-4 leading-tight">{p}</span>
                       <input 
                         type="number" 
                         placeholder="0" 
-                        className={`w-20 bg-slate-50 border-2 border-transparent focus:border-blue-200 rounded-xl p-2 text-center font-black outline-none transition-all ${inventory[p]?.quantity > 0 ? 'bg-blue-600 text-white' : 'text-gray-400'}`}
+                        className={`w-14 md:w-20 shrink-0 bg-slate-50 border-2 border-transparent focus:border-blue-200 rounded-lg md:rounded-xl p-1.5 md:p-2 text-center font-black outline-none transition-all ${inventory[p]?.quantity > 0 ? 'bg-blue-600 text-white' : 'text-gray-400'}`}
                         value={inventory[p]?.quantity || ''}
                         onChange={(e) => handleUpdateQuantity(p, Number(e.target.value))}
                       />
@@ -142,17 +142,17 @@ const InventoryRegistration: React.FC<Props> = ({ user, markets }) => {
                   {/* Manual Products */}
                   {/* Fix: Corrected key prop syntax */}
                   {manualProducts[cat].map(mKey => (
-                    <div key={mKey} className="p-4 bg-white border border-rose-200 rounded-2xl flex items-center gap-2 group transition-all">
+                    <div key={mKey} className="p-2 md:p-4 bg-white border border-rose-200 rounded-xl md:rounded-2xl flex items-center gap-1 md:gap-2 group transition-all w-full">
                       <input 
                         placeholder="اسم الصنف الجديد..."
-                        className="text-xs font-bold text-rose-800 flex-1 bg-rose-50 rounded-lg p-2 outline-none border-transparent focus:border-rose-200"
+                        className="text-[10px] md:text-xs font-bold text-rose-800 flex-1 bg-rose-50 rounded-lg p-1.5 md:p-2 outline-none border-transparent focus:border-rose-200 w-0 shrink"
                         value={inventory[mKey]?.name || ''}
                         onChange={(e) => updateManualName(mKey, e.target.value)}
                       />
                       <input 
                         type="number" 
                         placeholder="0" 
-                        className={`w-20 bg-slate-50 border-2 border-transparent focus:border-blue-200 rounded-xl p-2 text-center font-black outline-none transition-all ${inventory[mKey]?.quantity > 0 ? 'bg-blue-600 text-white' : 'text-gray-400'}`}
+                        className={`w-14 md:w-20 shrink-0 bg-slate-50 border-2 border-transparent focus:border-blue-200 rounded-lg md:rounded-xl p-1.5 md:p-2 text-center font-black outline-none transition-all ${inventory[mKey]?.quantity > 0 ? 'bg-blue-600 text-white' : 'text-gray-400'}`}
                         value={inventory[mKey]?.quantity || ''}
                         onChange={(e) => handleUpdateQuantity(mKey, Number(e.target.value))}
                       />

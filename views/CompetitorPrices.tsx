@@ -151,18 +151,18 @@ const CompetitorPrices: React.FC<Props> = ({ user, markets }) => {
             </div>
             <div className="space-y-3 mb-4">
               {prices[cat]?.map((row, idx) => (
-                <div key={idx} className="flex gap-3 bg-white border border-slate-100 p-4 rounded-3xl group transition-all hover:border-rose-200">
+                <div key={idx} className="flex gap-2 md:gap-3 bg-white border border-slate-100 p-2 md:p-4 rounded-2xl md:rounded-3xl group transition-all hover:border-rose-200">
                   <input 
                     placeholder="اسم المنتج المنافس..." 
-                    className="flex-1 bg-slate-50 border-2 border-transparent focus:border-rose-200 rounded-2xl p-4 font-bold text-gray-700 outline-none"
+                    className="flex-1 bg-slate-50 border-2 border-transparent focus:border-rose-200 rounded-xl md:rounded-2xl p-2 md:p-4 text-[10px] md:text-base font-bold text-gray-700 outline-none"
                     value={row.name} onChange={(e) => updatePriceRow(cat, idx, 'name', e.target.value)}
                   />
                   <input 
                     type="number" placeholder="السعر" 
-                    className="w-28 bg-slate-50 border-2 border-transparent focus:border-rose-200 rounded-2xl p-4 text-center font-black text-rose-900 outline-none"
+                    className="w-16 md:w-28 bg-slate-50 border-2 border-transparent focus:border-rose-200 rounded-xl md:rounded-2xl p-2 md:p-4 text-center text-[10px] md:text-base font-black text-rose-900 outline-none shrink-0"
                     value={row.price || ''} onChange={(e) => updatePriceRow(cat, idx, 'price', Number(e.target.value))}
                   />
-                  <button onClick={() => removePriceRow(cat, idx)} className="p-4 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-2xl transition-all"><Trash2 size={20}/></button>
+                  <button onClick={() => removePriceRow(cat, idx)} className="p-2 md:p-4 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl md:rounded-2xl transition-all shrink-0"><Trash2 className="w-4 h-4 md:w-5 md:h-5" /></button>
                 </div>
               ))}
             </div>

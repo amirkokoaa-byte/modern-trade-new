@@ -229,40 +229,41 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
                 )}
               </div>
               
-              <div className="overflow-x-auto custom-scrollbar pb-2">
-                <div className="min-w-max space-y-2">
+              <div className="w-full pb-2">
+                <div className="space-y-2 w-full">
                   {items.filter(i => i.category === cat).map(item => (
-                    <div key={item.id} className="p-3 bg-white/[0.02] border border-white/5 rounded-2xl flex items-center gap-3 hover:border-rose-500/30 transition-all flex-nowrap whitespace-nowrap min-w-max">
-                      <span className="min-w-[150px] md:min-w-[200px] font-bold text-xs text-white/90 whitespace-nowrap">
+                    <div key={item.id} className="p-2 md:p-3 bg-white/[0.02] border border-white/5 rounded-xl md:rounded-2xl flex items-center justify-between gap-1 md:gap-3 hover:border-rose-500/30 transition-all w-full">
+                      
+                      <span className="flex-1 font-bold text-[9px] md:text-sm text-white/90 leading-tight">
                         {item.productName}
                       </span>
                       
-                      <div className="flex items-center gap-2">
-                        <input type="number" placeholder="السعر" className="w-20 glass-input-dark rounded-xl p-2 text-center font-bold text-sm outline-none" value={item.price || ''} onChange={e => updateItem(item.id, 'price', Number(e.target.value))}/>
-                        <input type="number" placeholder="العدد" className={`w-20 rounded-xl p-2 text-center font-black text-sm border outline-none ${item.quantity > 0 ? 'bg-rose-600 border-rose-400 text-white' : 'bg-white/5 border-white/10'}`} value={item.quantity || ''} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))}/>
+                      <div className="flex items-center gap-1 md:gap-2 shrink-0">
+                        <input type="number" placeholder="السعر" className="w-12 md:w-20 glass-input-dark rounded-lg md:rounded-xl p-1.5 md:p-2 text-center font-bold text-[10px] md:text-sm outline-none shrink-0" value={item.price || ''} onChange={e => updateItem(item.id, 'price', Number(e.target.value))}/>
+                        <input type="number" placeholder="العدد" className={`w-12 md:w-20 rounded-lg md:rounded-xl p-1.5 md:p-2 text-center font-black text-[10px] md:text-sm border outline-none shrink-0 ${item.quantity > 0 ? 'bg-rose-600 border-rose-400 text-white' : 'bg-white/5 border-white/10'}`} value={item.quantity || ''} onChange={e => updateItem(item.id, 'quantity', Number(e.target.value))}/>
                         
-                        <div className="w-24 text-center border-r border-white/5 pr-2">
-                          <span className="block text-[8px] text-white/40 uppercase mb-0.5">الاجمالي</span>
-                          <span className="font-black text-rose-300 text-sm">
+                        <div className="w-14 md:w-24 text-center border-r border-white/5 pr-1 md:pr-2 shrink-0">
+                          <span className="block text-[7px] md:text-[8px] text-white/40 uppercase mb-0.5 whitespace-nowrap">الاجمالي</span>
+                          <span className="font-black text-rose-300 text-[10px] md:text-sm truncate block">
                             {(item.price * item.quantity).toLocaleString()}
                           </span>
                         </div>
                       </div>
 
                       {user.role === 'admin' && (
-                        <div className="flex items-center gap-1 mr-2 border-r border-white/10 pr-3">
-                          <button onClick={() => handleEditProduct(item.id, item.productName)} className="p-2 bg-blue-500/10 text-blue-400 rounded-lg hover:bg-blue-500/30 transition-all" title="تعديل">
-                            <Edit2 size={16} />
+                        <div className="flex items-center gap-0.5 md:gap-1 shrink-0 border-r border-white/10 pr-1 md:pr-3">
+                          <button onClick={() => handleEditProduct(item.id, item.productName)} className="p-1 md:p-2 bg-blue-500/10 text-blue-400 rounded-md md:rounded-lg hover:bg-blue-500/30 transition-all" title="تعديل">
+                            <Edit2 className="w-3 h-3 md:w-4 md:h-4" />
                           </button>
-                          <button onClick={() => handleDeleteProduct(item.id)} className="p-2 bg-red-500/10 text-red-500 rounded-lg hover:bg-red-500/30 transition-all" title="حذف">
-                            <Trash2 size={16} />
+                          <button onClick={() => handleDeleteProduct(item.id)} className="p-1 md:p-2 bg-red-500/10 text-red-500 rounded-md md:rounded-lg hover:bg-red-500/30 transition-all" title="حذف">
+                            <Trash2 className="w-3 h-3 md:w-4 md:h-4" />
                           </button>
                         </div>
                       )}
                     </div>
                   ))}
                   {items.filter(i => i.category === cat).length === 0 && (
-                     <div className="p-4 text-center text-white/30 text-xs font-bold bg-white/[0.01] rounded-2xl border border-white/5">
+                     <div className="p-4 text-center text-white/30 text-xs font-bold bg-white/[0.01] rounded-2xl border border-white/5 w-full">
                         لا يوجد منتجات في هذا القسم
                      </div>
                   )}
