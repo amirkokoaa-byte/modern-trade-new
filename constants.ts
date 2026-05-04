@@ -20,38 +20,45 @@ export const COMPANIES = [
 
 export const PRODUCT_GROUPS = {
   facial: [
-    "Soft 500 single",
-    "Soft 600 single",
-    "Soft 400 3*1",
-    "Soft 500 3*1 (3ply)",
-    "Soft 500 (3*1) classic",
-    "Soft 500 (3*1) smart",
-    "Soft 600 (3*1) 3ply",
-    "New mazika 220 (4*1)",
-    "New Mazika 250 (5*1)"
+    "جيب سوفت 10 قطع",
+    "جيب فلاور 10 قطع",
+    "نيو مزيكا (1*5)",
+    "عرض اهلا رمضان 450 منديل (3*1)",
+    "منديل سنجل 600",
+    "عرض 400 (3*1)",
+    "منديل سنجل 500",
+    "عرض 500 سمارت (3*1)",
+    "عرض 500 لارج (3*1)",
+    "عرض 600 (3*1)",
+    "عرض اليجانت 450 (3*1)",
+    "عرض كلاسيك 450 (3*1)",
+    "مزيكا 500 (3*1)",
+    "سوافي 500 (3*1)",
+    "ايزي سوفت 150 (6*1)",
+    "عرض قطن (3*1) 4 طبقات",
+    "عرض روزا (3*1)"
   ],
   kitchen: [
-    "Kitchen 2 Rolls",
-    "Kitchen 4 Rolls",
-    "Kitchen 6 Rolls",
-    "2 Rolls compress",
-    "6 Rolls compress",
-    "Mega Roll L",
-    "Soft Rose XL",
-    "Soft Rose XXL"
+    "رول مطبخ كلاسيك 2",
+    "رول مطبخ كلاسيك 6",
+    "رول مطبخ مضغوط 2",
+    "رول مطبخ مضغوط 6",
+    "اوزان لارج ( L )",
+    "اوزان اكس لارج XL",
+    "اوزان دبل اكس XXL"
   ],
   hotel_toilet: [
-    "Soft 2 Hotels Jumbo",
-    "Soft 2 Hotels mauve",
-    "Soft 2 Hotel Compress",
-    "Soft 6 Hotels Jumbo",
-    "Soft 6 Hotels mauve",
-    "Soft 6 Hotel Compress"
+    "بكرة سوبر رول 2",
+    "بكرة سوبر رول 6",
+    "بكرة موف 2",
+    "بكرة موف 6",
+    "بكرات سوافي 10",
+    "بكرات جوي 10"
   ],
   dolphin: [
-    "Dolphin 2 Toilet Rolls",
-    "Dolphin 9 Toilet Rolls",
-    "Dolphin 18 Toilet Rolls",
-    "Dolphin 24 Toilet Rolls"
+    "دولفن 2 بكرة",
+    "فاني تايم مقاس 2",
+    "فاني تايم مقاس 3",
+    "فاني تايم مقاس 4"
   ]
 };
