@@ -264,8 +264,8 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
               onChange={(e) => setSearchName(e.target.value)}
             >
               <option value="" className="bg-slate-900">جميع الموظفين</option>
-              {users.map(u => (
-                <option key={u.id} value={u.employeeName} className="bg-slate-900">{u.employeeName}</option>
+              {users.map((u, idx) => (
+                <option key={`${u.id}-${idx}`} value={u.employeeName} className="bg-slate-900">{u.employeeName}</option>
               ))}
             </select>
           </div>
@@ -471,7 +471,7 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
                     onChange={e => setProductSalesFilters({...productSalesFilters, productName: e.target.value})}
                   >
                     <option value="" className="bg-slate-900">جميع الأصناف</option>
-                    {uniqueProducts.map(p => <option key={p} value={p} className="bg-slate-900">{p}</option>)}
+                    {uniqueProducts.map((p, idx) => <option key={`${p}-${idx}`} value={p} className="bg-slate-900">{p}</option>)}
                   </select>
                </div>
                <div>
@@ -482,7 +482,7 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
                     onChange={e => setProductSalesFilters({...productSalesFilters, marketName: e.target.value})}
                   >
                     <option value="" className="bg-slate-900">جميع الماركتات</option>
-                    {markets.map(m => <option key={m} value={m} className="bg-slate-900">{m}</option>)}
+                    {markets.map((m, idx) => <option key={`${m}-${idx}`} value={m} className="bg-slate-900">{m}</option>)}
                   </select>
                </div>
                <div>
@@ -566,7 +566,7 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
                     onChange={e => {setTargetMgmt({...targetMgmt, marketName: e.target.value}); setGrowthRate(0); setFinalTargetOverride('');}}
                   >
                     <option value="" className="bg-slate-900">-- الفروع المسجلة --</option>
-                    {markets.map(m => <option key={m} value={m} className="bg-slate-900">{m}</option>)}
+                    {markets.map((m, idx) => <option key={`${m}-${idx}`} value={m} className="bg-slate-900">{m}</option>)}
                   </select>
                 </div>
                 <div>
@@ -577,7 +577,7 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
                     onChange={e => {setTargetMgmt({...targetMgmt, userId: e.target.value}); setGrowthRate(0); setFinalTargetOverride('');}}
                   >
                     <option value="" className="bg-slate-900">-- الموظفين --</option>
-                    {users.map(u => <option key={u.id} value={u.id} className="bg-slate-900">{u.employeeName}</option>)}
+                    {users.map((u, idx) => <option key={`${u.id}-${idx}`} value={u.id} className="bg-slate-900">{u.employeeName}</option>)}
                   </select>
                 </div>
               </div>
