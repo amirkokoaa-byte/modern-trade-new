@@ -3,5 +3,6 @@
   "description": "Internal management system for sales, inventory, and competitor tracking",
   "requestFramePermissions": [
     "geolocation"
-  ]
+  ],
+  "majorCapabilities": []
 }
