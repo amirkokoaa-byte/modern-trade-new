@@ -1,8 +1,8 @@
 
-import React, { useState, useEffect } from 'react';
-import { User, SaleItem } from '../types';
+import React, { useState, useEffect, useMemo } from 'react';
+import { User, SaleItem, TargetRecord, DailySale } from '../types';
 import { PRODUCT_GROUPS } from '../constants';
-import { ShoppingBag, Save, PlusCircle, Trash2, Edit2, Plus } from 'lucide-react';
+import { ShoppingBag, Save, PlusCircle, Trash2, Edit2, Plus, Target } from 'lucide-react';
 import { db, ref, push, onValue, update, remove, set } from '../firebase';
 
 interface Props {
@@ -14,9 +14,12 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
   const [selectedMarket, setSelectedMarket] = useState('');
   const [items, setItems] = useState<SaleItem[]>([]);
   const [dbProducts, setDbProducts] = useState<Record<string, {category: string, name: string}>>({});
+  
+  const [targets, setTargets] = useState<TargetRecord[]>([]);
+  const [allSales, setAllSales] = useState<DailySale[]>([]);
 
   useEffect(() => {
-    const unsub = onValue(ref(db, 'products'), (snapshot) => {
+    const unsubProducts = onValue(ref(db, 'products'), (snapshot) => {
       const data = snapshot.val();
       if (data) {
         setDbProducts(data);
@@ -33,24 +36,65 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
               quantity: existing ? existing.quantity : 0
             });
           });
-          // Sort items by name conceptually, or maintain order based on insertion.
-          // By default, Object.entries might not guarantee perfect order, but it's consistent.
           return newItems;
         });
       } else {
         const initialProducts: Record<string, any> = {};
         Object.entries(PRODUCT_GROUPS).forEach(([cat, productsList]) => {
           productsList.forEach((p, index) => {
-            // Include Date.now() for unique seeding per run if needed, but index is fine here 
-            // since it'll only run once when DB is empty.
             initialProducts[`${cat}-${index}-${Date.now()}`] = { category: cat, name: p };
           });
         });
         update(ref(db, 'products'), initialProducts);
       }
     });
-    return () => unsub();
-  }, []);
+
+    const unsubTargets = onValue(ref(db, 'targets'), snapshot => {
+      const data = snapshot.val();
+      if(data) {
+        setTargets(Object.entries(data).map(([id, val]: any) => ({ ...val, id })));
+      } else {
+        setTargets([]);
+      }
+    });
+
+    const unsubSales = onValue(ref(db, 'sales'), snapshot => {
+      const data = snapshot.val();
+      if(data) {
+        const salesList = Object.entries(data).map(([id, val]: any) => ({ ...val, id }));
+        // Only need current user's sales this month to calculate achievement
+        const currentMonth = `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`;
+        const userSales = salesList.filter(s => s.userId === user.id && s.date.startsWith(currentMonth));
+        setAllSales(userSales);
+      } else {
+        setAllSales([]);
+      }
+    });
+
+    return () => {
+      unsubProducts();
+      unsubTargets();
+      unsubSales();
+    };
+  }, [user.id]);
+
+  const currentTarget = useMemo(() => {
+    if(!selectedMarket) return null;
+    const yearMonth = `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`;
+    const target = targets.find(t => t.userId === user.id && t.marketName === selectedMarket && t.yearMonth === yearMonth);
+    
+    if(!target) return null;
+    
+    const achieved = allSales.filter(s => s.marketName === selectedMarket).reduce((sum, s) => sum + Number(s.total || 0), 0);
+    const remaining = Math.max(0, target.targetValue - achieved);
+    
+    return {
+      targetValue: target.targetValue,
+      achieved,
+      remaining,
+      progress: Math.min(100, (achieved / target.targetValue) * 100)
+    };
+  }, [selectedMarket, targets, allSales, user.id]);
 
   const updateItem = (id: string, field: keyof SaleItem, value: any) => {
     setItems(items.map(i => i.id === id ? { ...i, [field]: value } : i));
@@ -139,6 +183,33 @@ const DailySales: React.FC<Props> = ({ user, markets }) => {
             </button>
           )}
         </div>
+
+        {currentTarget && (
+          <div className="p-6 bg-gradient-to-l from-emerald-900/40 to-emerald-700/10 rounded-[2rem] border border-emerald-500/20 shadow-lg backdrop-blur-md">
+            <div className="flex items-center gap-2 mb-4 text-emerald-300">
+              <Target size={20}/>
+              <h3 className="font-black text-sm uppercase tracking-widest">تارجت الشهر الحالي ({selectedMarket})</h3>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-white/5 border border-white/10 p-4 rounded-xl flex flex-col items-center justify-center text-center">
+                <span className="text-[10px] font-bold text-white/50 mb-1">التارجت</span>
+                <span className="font-black text-white text-lg">{currentTarget.targetValue.toLocaleString()} <span className="text-[10px] text-emerald-400 opacity-60">ج.م</span></span>
+              </div>
+              <div className="bg-emerald-500/20 border border-emerald-500/30 p-4 rounded-xl flex flex-col items-center justify-center text-center">
+                <span className="text-[10px] font-bold text-emerald-200 mb-1">المحقق</span>
+                <span className="font-black text-emerald-400 text-lg">{currentTarget.achieved.toLocaleString()} <span className="text-[10px] opacity-60">ج.م</span></span>
+              </div>
+              <div className="bg-white/5 border border-white/10 p-4 rounded-xl flex flex-col items-center justify-center text-center">
+                <span className="text-[10px] font-bold text-white/50 mb-1">المتبقي</span>
+                <span className="font-black text-white/80 text-lg">{currentTarget.remaining.toLocaleString()} <span className="text-[10px] opacity-60">ج.م</span></span>
+              </div>
+            </div>
+            {/* Progress bar */}
+            <div className="mt-4 bg-white/10 h-2 rounded-full overflow-hidden">
+               <div className="bg-emerald-500 h-full transition-all duration-1000 ease-out" style={{width: `${currentTarget.progress}%`}}></div>
+            </div>
+          </div>
+        )}
 
         <div className="space-y-12">
           {Object.entries(categoriesMap).map(([cat, title]) => (

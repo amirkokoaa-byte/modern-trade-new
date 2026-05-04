@@ -91,7 +91,16 @@ export interface Vacation {
   createdAt: string;
 }
 
+export interface TargetRecord {
+  id: string;
+  userId: string;
+  marketName: string;
+  yearMonth: string; // e.g. "2023-10"
+  targetValue: number;
+}
+
 export interface InventoryRecord {
+
   id: string;
   userId: string;
   userName: string;

@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { User, DailySale } from '../types';
-import { Trash2, Edit, Trophy, BarChart3, FileSpreadsheet, X, Clock, Calendar as CalendarIcon, User as UserIcon, Store, History, Search, Filter, Download } from 'lucide-react';
-import { db, ref, onValue, remove, update } from '../firebase';
+import { User, DailySale, TargetRecord } from '../types';
+import { Trash2, Edit, Trophy, BarChart3, FileSpreadsheet, X, Clock, Calendar as CalendarIcon, User as UserIcon, Store, History, Search, Filter, Download, Crosshair, PackageSearch, Plus } from 'lucide-react';
+import { db, ref, onValue, remove, update, push, set } from '../firebase';
 import * as XLSX from 'xlsx';
 
 interface Props {
@@ -13,6 +13,7 @@ interface Props {
 
 const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
   const [sales, setSales] = useState<DailySale[]>([]);
+  const [targets, setTargets] = useState<TargetRecord[]>([]);
   const [selectedSale, setSelectedSale] = useState<DailySale | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [searchName, setSearchName] = useState('');
@@ -21,6 +22,22 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
     dateEnd: '',
     marketName: ''
   });
+
+  const [isProductSalesOpen, setIsProductSalesOpen] = useState(false);
+  const [productSalesFilters, setProductSalesFilters] = useState({
+    productName: '',
+    marketName: '',
+    dateStart: '',
+    dateEnd: ''
+  });
+
+  const [isTargetMgmtOpen, setIsTargetMgmtOpen] = useState(false);
+  const [targetMgmt, setTargetMgmt] = useState({
+    userId: '',
+    marketName: ''
+  });
+  const [growthRate, setGrowthRate] = useState(0);
+  const [finalTargetOverride, setFinalTargetOverride] = useState<number | ''>('');
 
   useEffect(() => {
     const salesRef = ref(db, 'sales');
@@ -40,6 +57,15 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
         setSales([]);
       }
     });
+
+    onValue(ref(db, 'targets'), snapshot => {
+      const data = snapshot.val();
+      if(data) {
+        setTargets(Object.entries(data).map(([id, val]: any) => ({ ...val, id })));
+      } else {
+        setTargets([]);
+      }
+    });
   }, [user]);
 
   const filteredSales = useMemo(() => {
@@ -48,7 +74,7 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
       const matchStart = filters.dateStart ? sDate >= filters.dateStart : true;
       const matchEnd = filters.dateEnd ? sDate <= filters.dateEnd : true;
       const matchMarket = filters.marketName ? s.marketName === filters.marketName : true;
-      const matchName = searchName ? s.userName.toLowerCase().includes(searchName.toLowerCase()) : true;
+      const matchName = searchName ? s.userName === searchName : true;
       return matchStart && matchEnd && matchMarket && matchName;
     });
   }, [sales, filters, searchName]);
@@ -56,30 +82,68 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
   const stats = useMemo(() => {
     const dataToProcess = filteredSales;
     const userTotals: Record<string, {name: string, total: number}> = {};
-    const productTotals: Record<string, {quantity: number, total: number}> = {};
 
     dataToProcess.forEach(s => {
       const uid = s.userId || 'unknown';
       if (!userTotals[uid]) userTotals[uid] = { name: s.userName || 'غير معروف', total: 0 };
       userTotals[uid].total += (Number(s.total) || 0);
-
-      (s.items || []).forEach(item => {
-        const pname = item.productName || 'صنف غير معروف';
-        if (!productTotals[pname]) productTotals[pname] = { quantity: 0, total: 0 };
-        const q = Number(item.quantity) || 0;
-        const p = Number(item.price) || 0;
-        productTotals[pname].quantity += q;
-        productTotals[pname].total += (q * p);
-      });
     });
 
     const star = Object.values(userTotals).sort((a, b) => b.total - a.total)[0] || null;
-    const topProducts = Object.entries(productTotals)
-      .sort((a, b) => b[1].quantity - a[1].quantity)
-      .slice(0, 3);
 
-    return { star, topProducts };
+    return { star };
   }, [filteredSales]);
+
+  // Product sales report calculation
+  const uniqueProducts = useMemo(() => Array.from(new Set(sales.flatMap(s => s.items.map(i => i.productName)))), [sales]);
+  const productReportData = useMemo(() => {
+    let rawItems = sales.flatMap(s => s.items.map(i => ({ ...i, date: s.date, marketName: s.marketName })));
+    rawItems = rawItems.filter(i => {
+      const iDate = i.date ? i.date.split('T')[0] : '';
+      const mMatch = productSalesFilters.marketName ? i.marketName === productSalesFilters.marketName : true;
+      const pMatch = productSalesFilters.productName ? i.productName === productSalesFilters.productName : true;
+      const dStart = productSalesFilters.dateStart ? iDate >= productSalesFilters.dateStart : true;
+      const dEnd = productSalesFilters.dateEnd ? iDate <= productSalesFilters.dateEnd : true;
+      return mMatch && pMatch && dStart && dEnd;
+    });
+
+    // aggregate
+    const aggregated: Record<string, { productName: string, price: number, quantity: number, total: number }> = {};
+    rawItems.forEach(i => {
+      const key = `${i.productName}-${i.price}`;
+      if(!aggregated[key]) aggregated[key] = { productName: i.productName, price: i.price, quantity: 0, total: 0 };
+      aggregated[key].quantity += Number(i.quantity) || 0;
+      aggregated[key].total += (Number(i.quantity) || 0) * (Number(i.price) || 0);
+    });
+
+    const finalArray = Object.values(aggregated).sort((a, b) => b.total - a.total);
+    const totalQNum = finalArray.reduce((acc, curr) => acc + curr.quantity, 0);
+    const totalValNum = finalArray.reduce((acc, curr) => acc + curr.total, 0);
+
+    return { items: finalArray, totalQuantity: totalQNum, totalValue: totalValNum };
+  }, [sales, productSalesFilters]);
+
+  const handleExportProductReport = () => {
+    const flatData = productReportData.items.map(i => ({
+      "الصنف": i.productName,
+      "السعر": i.price,
+      "الكمية المباعة": i.quantity,
+      "الإجمالي": i.total
+    }));
+    
+    // Add totals row
+    flatData.push({
+      "الصنف": "الإجمـــالــي",
+      "السعر": "" as any,
+      "الكمية المباعة": productReportData.totalQuantity,
+      "الإجمالي": productReportData.totalValue
+    });
+
+    const ws = XLSX.utils.json_to_sheet(flatData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Product Sales Report");
+    XLSX.writeFile(wb, "SoftRose_Product_Sales.xlsx");
+  };
 
   const handleExport = (dataToExport: DailySale[], fileName: string) => {
     const flatData = dataToExport.flatMap(s => (s.items || []).map(i => ({ 
@@ -104,10 +168,52 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
     }
   };
 
+  // Target management variables
+  const proposedTarget = useMemo(() => {
+    if(!targetMgmt.userId || !targetMgmt.marketName) return 0;
+    
+    // Calculate total sales for selected user & market in the previous 30 days (or all time / previous month)
+    // Based on user: "from day 1 to day 30 of each month... previous month + growth"
+    // For simplicity, let's calculate total historical sales for that branch and user for the previous month
+    const now = new Date();
+    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const startStr = lastMonth.toISOString().split('T')[0];
+    const endStr = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split('T')[0];
+    
+    const relevantSales = sales.filter(s => 
+      s.userId === targetMgmt.userId && 
+      s.marketName === targetMgmt.marketName &&
+      s.date >= startStr && s.date <= endStr
+    );
+    return relevantSales.reduce((sum, s) => sum + Number(s.total || 0), 0);
+  }, [targetMgmt, sales]);
+
+  const finalTarget = finalTargetOverride !== '' ? finalTargetOverride : (proposedTarget + (proposedTarget * (growthRate / 100)));
+
+  const handleApproveTarget = async () => {
+    if(!targetMgmt.userId || !targetMgmt.marketName) return alert("اختر الموظف والفرع");
+    const yearMonth = `${new Date().getFullYear()}-${(new Date().getMonth() + 1).toString().padStart(2, '0')}`;
+    
+    // Find if target exists
+    const existing = targets.find(t => t.userId === targetMgmt.userId && t.marketName === targetMgmt.marketName && t.yearMonth === yearMonth);
+    
+    if(existing) {
+      await update(ref(db, `targets/${existing.id}`), { targetValue: finalTarget });
+    } else {
+      await push(ref(db, `targets`), { 
+        userId: targetMgmt.userId, 
+        marketName: targetMgmt.marketName, 
+        yearMonth, 
+        targetValue: finalTarget 
+      });
+    }
+    alert("تم اعتماد وتحديث التارجت بنجاح");
+  };
+
   return (
     <div className="space-y-8 pb-20 text-right" dir="rtl">
       {/* Header & Main Actions */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+      <div className="flex flex-col md:flex-row justify-between gap-6">
         <div className="flex items-center gap-4">
           <div className="p-4 bg-rose-600 text-white rounded-[1.5rem] shadow-lg shadow-rose-900/20"><History size={28} /></div>
           <div>
@@ -117,14 +223,30 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
         </div>
         <div className="flex flex-wrap gap-2">
            <button 
-            onClick={() => handleExport(filteredSales, "SoftRose_Filtered_Report")} 
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-rose-600 text-white px-6 py-4 rounded-2xl font-black text-xs shadow-lg hover:bg-rose-500 transition-all"
+             onClick={() => setIsProductSalesOpen(true)} 
+             className="flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-2xl font-black text-xs shadow-lg hover:bg-blue-500 transition-all"
            >
-            <Download size={18}/> تصدير النتائج الحالية
+            <PackageSearch size={18}/> مبيعات صنف
+          </button>
+          
+          {(user.role === 'admin' || user.role === 'coordinator') && (
+            <button 
+              onClick={() => setIsTargetMgmtOpen(true)} 
+              className="flex items-center gap-2 bg-emerald-600 text-white px-5 py-3 rounded-2xl font-black text-xs shadow-lg hover:bg-emerald-500 transition-all"
+            >
+              <Crosshair size={18}/> إدارة التارجت
+            </button>
+          )}
+
+           <button 
+            onClick={() => handleExport(filteredSales, "SoftRose_Filtered_Report")} 
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-rose-600 text-white px-6 py-3 rounded-2xl font-black text-xs shadow-lg hover:bg-rose-500 transition-all"
+           >
+            <Download size={18}/> تصدير
           </button>
           <button 
             onClick={() => handleExport(sales, "SoftRose_Full_History")} 
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 text-white/60 border border-white/10 px-6 py-4 rounded-2xl font-black text-xs hover:bg-white/10 transition-all"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/5 text-white/60 border border-white/10 px-6 py-3 rounded-2xl font-black text-xs hover:bg-white/10 transition-all"
           >
             <FileSpreadsheet size={18}/> السجل بالكامل
           </button>
@@ -134,16 +256,18 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
       {/* Filter Bar */}
       <div className="glass-card-dark p-6 rounded-[2.5rem] grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
         <div className="md:col-span-1">
-          <label className="text-[10px] font-black text-white/30 uppercase block mb-2 mr-2">البحث باسم الموظف</label>
+          <label className="text-[10px] font-black text-white/30 uppercase block mb-2 mr-2">الموظف</label>
           <div className="relative">
-            <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30" size={16}/>
-            <input 
-              type="text" 
-              placeholder="اكتب اسم الموظف..." 
-              className="w-full glass-input-dark rounded-xl p-4 pr-12 text-xs font-bold outline-none border-transparent focus:border-rose-500/50 transition-all"
+            <select 
+              className="w-full glass-input-dark rounded-xl p-4 text-xs font-bold outline-none border-transparent focus:border-rose-500/50 transition-all appearance-none"
               value={searchName}
               onChange={(e) => setSearchName(e.target.value)}
-            />
+            >
+              <option value="" className="bg-slate-900">جميع الموظفين</option>
+              {users.map(u => (
+                <option key={u.id} value={u.employeeName} className="bg-slate-900">{u.employeeName}</option>
+              ))}
+            </select>
           </div>
         </div>
         <div>
@@ -174,8 +298,8 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
         </div>
       </div>
 
-      {/* Quick Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Quick Stats */}
+      <div className="grid grid-cols-1 gap-6">
         <div className="bg-gradient-to-br from-rose-600 to-rose-900 p-8 rounded-[2.5rem] text-white shadow-2xl relative overflow-hidden group">
           <Trophy className="absolute -right-6 -bottom-6 w-48 h-48 opacity-10 rotate-12 group-hover:scale-110 transition-transform duration-700" />
           <div className="relative z-10">
@@ -191,31 +315,6 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
                 </div>
               </div>
             ) : <p className="text-sm font-bold opacity-50 italic">لا توجد مبيعات في هذه الفترة</p>}
-          </div>
-        </div>
-
-        <div className="glass-card-dark p-8 rounded-[2.5rem] relative overflow-hidden">
-          <h3 className="font-black text-[10px] text-white/40 mb-6 flex items-center gap-2 uppercase tracking-[0.2em]">
-            <BarChart3 size={18} className="text-rose-500" /> الأصناف الأكثر حركة
-          </h3>
-          <div className="space-y-4">
-            {stats.topProducts.map(([name, data], idx) => (
-              <div key={idx} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 group hover:bg-white/10 transition-all">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center font-black text-sm">{idx + 1}</div>
-                  <div>
-                    <p className="text-xs font-black text-white leading-none">{name}</p>
-                    <p className="text-[10px] font-bold text-white/30 mt-1 uppercase">{data.quantity} قطعة</p>
-                  </div>
-                </div>
-                <div className="text-left font-black text-rose-400 text-sm">
-                   {(data.total || 0).toLocaleString()} <span className="text-[10px] opacity-40">EGP</span>
-                </div>
-              </div>
-            ))}
-            {stats.topProducts.length === 0 && (
-              <p className="text-center py-6 text-white/20 font-bold italic text-xs">لا توجد بيانات للأصناف</p>
-            )}
           </div>
         </div>
       </div>
@@ -293,9 +392,19 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
               <button onClick={() => setIsEditing(false)} className="p-2 hover:bg-white/10 rounded-full transition-all"><X size={24}/></button>
             </div>
             <div className="p-8 max-h-[60vh] overflow-y-auto space-y-4 custom-scrollbar">
+              {/* Added grid-cols-5 to accommodate product name edit */}
               {(selectedSale.items || []).map((item, idx) => (
-                <div key={idx} className="grid grid-cols-4 gap-4 p-5 bg-white/5 rounded-2xl items-center">
-                  <span className="text-white font-bold text-xs truncate col-span-1">{item.productName}</span>
+                <div key={idx} className="grid grid-cols-5 gap-4 p-5 bg-white/5 rounded-2xl items-center">
+                  <input 
+                    type="text" 
+                    className="col-span-2 glass-input-dark p-3 rounded-xl text-xs font-bold outline-none" 
+                    value={item.productName} 
+                    onChange={(e) => {
+                      const newItems = [...(selectedSale.items || [])];
+                      newItems[idx].productName = e.target.value;
+                      setSelectedSale({...selectedSale, items: newItems});
+                    }}
+                  />
                   <input 
                     type="number" 
                     className="glass-input-dark p-3 rounded-xl text-center text-xs font-black outline-none" 
@@ -328,6 +437,191 @@ const SalesHistory: React.FC<Props> = ({ user, markets = [], users = [] }) => {
                  setIsEditing(false);
                  alert("تم تحديث السجل بنجاح");
                }} className="bg-rose-600 text-white px-12 py-4 rounded-2xl font-black shadow-lg shadow-rose-900/20 hover:bg-rose-500">حفظ التعديلات</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Product Sales Modal */}
+      {isProductSalesOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+          <div className="glass-card-dark rounded-[3rem] w-full max-w-4xl max-h-[90vh] overflow-hidden border border-white/10 flex flex-col animate-in zoom-in-95">
+            <div className="bg-blue-900/50 p-6 text-white flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <PackageSearch className="text-blue-400" />
+                <h3 className="text-lg font-black">تقرير مبيعات الأصناف</h3>
+              </div>
+              <div className="flex items-center gap-4">
+                <button 
+                  onClick={handleExportProductReport} 
+                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-xl font-bold text-xs hover:bg-blue-500 transition-all"
+                >
+                  <Download size={14}/> تصدير إلى إكسيل
+                </button>
+                <button onClick={() => setIsProductSalesOpen(false)} className="p-2 hover:bg-white/10 rounded-full transition-all"><X size={24}/></button>
+              </div>
+            </div>
+            
+            <div className="p-6 bg-white/5 grid grid-cols-1 md:grid-cols-4 gap-4">
+               <div>
+                  <label className="text-[10px] font-black text-white/30 uppercase block mb-2">اسم الصنف</label>
+                  <select 
+                    className="w-full glass-input-dark rounded-xl p-3 text-xs font-bold outline-none appearance-none"
+                    value={productSalesFilters.productName}
+                    onChange={e => setProductSalesFilters({...productSalesFilters, productName: e.target.value})}
+                  >
+                    <option value="" className="bg-slate-900">جميع الأصناف</option>
+                    {uniqueProducts.map(p => <option key={p} value={p} className="bg-slate-900">{p}</option>)}
+                  </select>
+               </div>
+               <div>
+                  <label className="text-[10px] font-black text-white/30 uppercase block mb-2">اسم الماركت</label>
+                  <select 
+                    className="w-full glass-input-dark rounded-xl p-3 text-xs font-bold outline-none appearance-none"
+                    value={productSalesFilters.marketName}
+                    onChange={e => setProductSalesFilters({...productSalesFilters, marketName: e.target.value})}
+                  >
+                    <option value="" className="bg-slate-900">جميع الماركتات</option>
+                    {markets.map(m => <option key={m} value={m} className="bg-slate-900">{m}</option>)}
+                  </select>
+               </div>
+               <div>
+                  <label className="text-[10px] font-black text-white/30 uppercase block mb-2">من تاريخ</label>
+                  <input 
+                    type="date" 
+                    className="w-full glass-input-dark rounded-xl p-3 text-xs font-bold outline-none"
+                    value={productSalesFilters.dateStart}
+                    onChange={e => setProductSalesFilters({...productSalesFilters, dateStart: e.target.value})}
+                  />
+               </div>
+               <div>
+                  <label className="text-[10px] font-black text-white/30 uppercase block mb-2">إلى تاريخ</label>
+                  <input 
+                    type="date" 
+                    className="w-full glass-input-dark rounded-xl p-3 text-xs font-bold outline-none"
+                    value={productSalesFilters.dateEnd}
+                    onChange={e => setProductSalesFilters({...productSalesFilters, dateEnd: e.target.value})}
+                  />
+               </div>
+            </div>
+
+            <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] flex flex-col justify-center items-center text-center">
+                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">الكمية المباعة</span>
+                <span className="text-4xl font-black text-blue-400">{productReportData.totalQuantity.toLocaleString()}</span>
+              </div>
+              <div className="bg-white/5 border border-white/10 p-6 rounded-[2rem] flex flex-col justify-center items-center text-center">
+                <span className="text-[10px] font-black text-white/40 uppercase tracking-widest mb-2">القيمة الإجمالية</span>
+                <span className="text-4xl font-black text-emerald-400">{productReportData.totalValue.toLocaleString()} <span className="text-sm">ج.م</span></span>
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 pt-0 custom-scrollbar">
+               <table className="w-full text-sm text-right">
+                 <thead>
+                   <tr className="border-b border-white/10 text-white/40 font-bold">
+                     <th className="py-4">الصنف</th>
+                     <th className="py-4 text-center">السعر</th>
+                     <th className="py-4 text-center">الكمية</th>
+                     <th className="py-4 text-left">الإجمالي</th>
+                   </tr>
+                 </thead>
+                 <tbody>
+                   {productReportData.items.map((i, idx) => (
+                     <tr key={idx} className="border-b border-white/5 hover:bg-white/[0.02] font-bold">
+                       <td className="py-4">{i.productName}</td>
+                       <td className="py-4 text-center text-white/60">{i.price}</td>
+                       <td className="py-4 text-center text-blue-300">{i.quantity}</td>
+                       <td className="py-4 text-left text-emerald-400">{i.total.toLocaleString()}</td>
+                     </tr>
+                   ))}
+                   {productReportData.items.length === 0 && (
+                     <tr><td colSpan={4} className="py-8 text-center text-white/20">لا توجد مبيعات مطابقة للبحث</td></tr>
+                   )}
+                 </tbody>
+               </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Target Management Modal */}
+      {isTargetMgmtOpen && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-[200] flex items-center justify-center p-4">
+          <div className="glass-card-dark rounded-[3rem] w-full max-w-lg overflow-hidden border border-white/10 animate-in zoom-in-95">
+            <div className="bg-emerald-900/50 p-6 text-white flex justify-between items-center">
+               <div className="flex items-center gap-3">
+                 <Crosshair className="text-emerald-400" />
+                 <h3 className="text-lg font-black">إدارة التارجت</h3>
+               </div>
+               <button onClick={() => {setIsTargetMgmtOpen(false); setGrowthRate(0); setFinalTargetOverride('');}} className="p-2 hover:bg-white/10 rounded-full transition-all"><X size={24}/></button>
+            </div>
+            <div className="p-8 space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <label className="text-[10px] font-black text-white/30 uppercase block mb-2">اختر الفرع</label>
+                  <select 
+                    className="w-full glass-input-dark rounded-xl p-4 text-sm font-bold outline-none appearance-none"
+                    value={targetMgmt.marketName}
+                    onChange={e => {setTargetMgmt({...targetMgmt, marketName: e.target.value}); setGrowthRate(0); setFinalTargetOverride('');}}
+                  >
+                    <option value="" className="bg-slate-900">-- الفروع المسجلة --</option>
+                    {markets.map(m => <option key={m} value={m} className="bg-slate-900">{m}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-black text-white/30 uppercase block mb-2">اختر الموظف</label>
+                  <select 
+                    className="w-full glass-input-dark rounded-xl p-4 text-sm font-bold outline-none appearance-none"
+                    value={targetMgmt.userId}
+                    onChange={e => {setTargetMgmt({...targetMgmt, userId: e.target.value}); setGrowthRate(0); setFinalTargetOverride('');}}
+                  >
+                    <option value="" className="bg-slate-900">-- الموظفين --</option>
+                    {users.map(u => <option key={u.id} value={u.id} className="bg-slate-900">{u.employeeName}</option>)}
+                  </select>
+                </div>
+              </div>
+
+              {targetMgmt.userId && targetMgmt.marketName && (
+                <div className="pt-4 border-t border-white/10 space-y-4">
+                  <div className="bg-white/5 p-4 rounded-2xl flex justify-between items-center">
+                     <span className="text-xs font-bold text-white/60">التارجت المقترح الشهري</span>
+                     <span className="font-black text-white text-lg">{proposedTarget.toLocaleString()} <span className="text-[10px] text-white/30">ج.م</span></span>
+                  </div>
+                  
+                  <div>
+                    <label className="text-[10px] font-black text-white/30 uppercase block mb-2">نسبة النمو (%)</label>
+                    <input 
+                      type="number" 
+                      className="w-full glass-input-dark rounded-xl p-4 text-sm font-bold outline-none"
+                      value={growthRate}
+                      onChange={e => {setGrowthRate(Number(e.target.value)); setFinalTargetOverride('');}}
+                      min={0}
+                    />
+                  </div>
+
+                  <div className="bg-emerald-600/20 border border-emerald-500/30 p-5 rounded-2xl">
+                     <label className="text-[10px] font-black text-emerald-300 uppercase block mb-2">التارجت النهائي المعتمد</label>
+                     <div className="flex items-center gap-3">
+                       <input 
+                         type="number" 
+                         className="flex-1 bg-transparent border-b-2 border-emerald-500/50 text-2xl font-black text-emerald-400 outline-none p-2"
+                         value={finalTarget}
+                         onChange={e => setFinalTargetOverride(e.target.value === '' ? '' : Number(e.target.value))}
+                       />
+                       <span className="text-emerald-500 font-bold">ج.م</span>
+                     </div>
+                  </div>
+                  
+                  <button 
+                    onClick={handleApproveTarget} 
+                    className="w-full py-4 mt-4 bg-emerald-600 text-white rounded-2xl font-black shadow-lg hover:bg-emerald-500 transition-all flex items-center justify-center gap-2"
+                  >
+                     <Plus size={20} />
+                     اعتماد وإضافة التارجت
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
